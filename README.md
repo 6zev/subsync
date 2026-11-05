@@ -33,13 +33,24 @@ sẵn chỗ khai báo volume thư mục phim).
 | Việc | Lệnh |
 | --- | --- |
 | Xem log | `docker logs -f subsync` |
-| Sức khoẻ | `curl localhost:7878/healthz` |
+| Sức khoẻ | `curl localhost:7878/healthz` → kèm `build.sha` để biết đang chạy bản nào |
 | Cấu hình | mở `http://<IP>:7878/configure` (ghi vào volume `/data`) |
 | Cập nhật | `docker compose pull && docker compose up -d` |
 | Bản nhẹ, không có âm thanh | build với `--build-arg INSTALL_FFMPEG=0` |
 
-Ảnh hỗ trợ **linux/amd64 + linux/arm64**. `PUBLIC_URL` rất quan trọng: nếu không đặt, link
-phụ đề trả cho Stremio sẽ trỏ sai host. Biến môi trường nhận đúng như `.env.example`.
+Ảnh hỗ trợ **linux/amd64 + linux/arm64**. Biến môi trường nhận đúng như `.env.example`.
+
+**Build identity.** CI bake commit sha vào image (`ARG GIT_SHA`), nên `/healthz` và `/stats`
+trả về `build.sha` / `build.shortSha`, trang `/configure` hiện "Bản đang chạy", và log khởi
+động in `nuvio-sync v0.1.0 (a260193, built ...)`. Nhờ vậy không phải đoán deployment đang là
+build nào — chỉ cần `curl .../healthz`. Chạy trực tiếp từ source (không Docker) thì sha được
+đọc từ git checkout; không có git thì báo `unknown`.
+
+**Dữ liệu có bị mất khi restart không?** Nếu `DATA_DIR` trống, addon tự sinh `TOKEN_SECRET`
+mới → mọi link phụ đề đã đưa cho Stremio hỏng và toàn bộ offset đã học bị mất. Addon sẽ
+**cảnh báo rõ trong log và trên trang `/configure`** khi điều đó xảy ra. Hai cách chống:
+gắn volume đúng vào `/data` (`-v subsync-data:/data`), hoặc đặt biến `TOKEN_SECRET` cố định
+(link cũ vẫn sống dù mất dữ liệu).
 
 ---
 
@@ -275,7 +286,7 @@ biết nó đã bị dịch bao nhiêu và bằng cách nào.
 ## 6. Kiểm thử
 
 ```bash
-npm test          # 98 test (node:test, không cần dependency)
+npm test          # 120 test (node:test, không cần dependency)
 npm run test:e2e  # bật HTTP server thật rồi gọi như Stremio + 1 video ffmpeg thật
 ```
 
@@ -290,8 +301,9 @@ video .mkv thật**; sắp hạng provider; chống XSS ở trang web; và e2e t
 
 `.github/workflows/docker.yml` chạy 2 job:
 
-1. **test** — `npm test` (111 test) trên Node 24, có `ffmpeg` để chạy cả test âm thanh;
-2. **build** — `docker buildx` dựng **linux/amd64 + linux/arm64**, đẩy lên
+1. **test** — `npm test` (120 test) trên Node 24, có `ffmpeg` để chạy cả test âm thanh;
+2. **build** — `docker buildx` dựng **linux/amd64 + linux/arm64** (kèm `GIT_SHA` + `BUILD_TIME`
+   để container tự khai báo bản build), đẩy lên
    `ghcr.io/6zev/subsync` với tag: `latest` (nhánh mặc định), tên nhánh, `sha-<ngắn>`, và
    `v1.2.3` / `1.2` khi push tag. Có cache `type=gha`, kèm SBOM + provenance.
 
@@ -316,7 +328,7 @@ docs/                 nuvio-parity · architecture · api
 Dockerfile            node:24-slim + ffmpeg (+ alass trên amd64)
 docker-compose.yml    1 service, volume /data cho offset & cache
 .github/workflows/    test -> buildx -> ghcr.io (amd64 + arm64)
-test/                 111 test
+test/                 120 test
 ```
 
 ---

@@ -49,6 +49,22 @@ test('the configure page renders the install URL and escapes every field', () =>
   assert.match(html, /abcd••••wxyz/);
 });
 
+test('the configure page warns when the token secret had to be invented', () => {
+  const base = {
+    manifestUrl: 'http://x/manifest.json', shareUrl: 'http://x/y/manifest.json',
+    config: { PREFERRED_LANGS: [] }, providers: [], stats: {},
+  };
+  const warned = renderConfigPage({ ...base, secretIsEphemeral: true, build: { version: '0.1.0', shortSha: 'abc1234', builtAt: null }, uptime: 120 });
+  assert.match(warned, /TOKEN_SECRET/);
+  assert.match(warned, /subsync-data:\/data/);
+  assert.ok(warned.includes('abc1234'), 'and it still shows the running build');
+  assert.ok(warned.includes('2 phút'), 'uptime is rendered in minutes');
+
+  const quiet = renderConfigPage(base);
+  assert.ok(!quiet.includes('TOKEN_SECRET'));
+  assert.ok(!quiet.includes('Bản đang chạy'), 'no build row when none was supplied');
+});
+
 test('the configure page degrades with no providers', () => {
   const html = renderConfigPage({
     manifestUrl: 'http://x/manifest.json', shareUrl: 'http://x/y/manifest.json',

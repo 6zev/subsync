@@ -102,7 +102,7 @@ ${script ? `<script>${script}</script>` : ''}
 /**
  * @param {{manifestUrl:string, shareUrl:string, config:object, providers:Array<object>, stats:object}} opts
  */
-export function renderConfigPage({ manifestUrl, shareUrl, config, providers = [], stats = {} }) {
+export function renderConfigPage({ manifestUrl, shareUrl, config, providers = [], stats = {}, build = null, uptime = 0, secretIsEphemeral: ephemeral = false }) {
   const providerRows = providers.map((p) => `
     <div class="cue">
       <div class="x">
@@ -198,8 +198,19 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
   </div>
 </form>
 
+${ephemeral ? `<div class="card" style="border-color:var(--warn)">
+  <h3 class="warn">Cảnh báo: dữ liệu không được lưu lại</h3>
+  <p class="note">Addon vừa tự sinh <code>TOKEN_SECRET</code> mới, nghĩa là thư mục dữ liệu
+  (<code>DATA_DIR</code>) đang trống. Mọi link phụ đề đã đưa cho Stremio sẽ hỏng và toàn bộ
+  offset đã học bị mất mỗi lần khởi động lại.<br>
+  Cách sửa: gắn volume đúng vào <code>/data</code> (<code>-v subsync-data:/data</code>), hoặc
+  đặt biến môi trường <code>TOKEN_SECRET</code> cố định để link cũ vẫn sống dù mất dữ liệu.</p>
+</div>` : ''}
+
 <div class="card">
   <h3>Trạng thái</h3>
+  ${build ? `<div class="kv"><span>Bản đang chạy</span><span>${escapeHtml(build.version)} · ${escapeHtml(build.shortSha)}${build.builtAt ? ` · ${escapeHtml(build.builtAt)}` : ''}</span></div>` : ''}
+  <div class="kv"><span>Uptime</span><span>${escapeHtml(Math.round(uptime / 60))} phút</span></div>
   <div class="kv"><span>Offset đã lưu</span><span>${escapeHtml(stats.offsets ?? 0)}</span></div>
   <div class="kv"><span>Phụ đề đã cache</span><span>${escapeHtml(stats.cachedSubs ?? 0)}</span></div>
   <div class="kv"><span>Track đã biết</span><span>${escapeHtml(stats.tracks ?? 0)}</span></div>

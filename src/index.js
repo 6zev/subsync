@@ -4,10 +4,11 @@
  * Owned by LEAD.
  */
 import { startFromConfig } from './server.js';
-import { getConfig, DATA_DIR } from './env.js';
+import { getConfig, DATA_DIR, secretIsEphemeral } from './env.js';
 import { prune } from './store/index.js';
 import { probeTools } from './sync/audioAlign.js';
 import { listProviders } from './providers/index.js';
+import { buildLabel } from './buildinfo.js';
 import { createLogger } from './util/log.js';
 
 const log = createLogger('boot');
@@ -19,11 +20,20 @@ async function main() {
   const providers = listProviders(config).filter((p) => p.enabled);
   const tools = await probeTools({ ffmpegPath: config.FFMPEG_PATH, alassPath: config.ALASS_PATH, ffsubsyncPath: config.FFSUBSYNC_PATH });
 
+  log.info(`nuvio-sync ${buildLabel()}`);
   log.info(`data dir: ${DATA_DIR}`);
+  if (secretIsEphemeral()) {
+    log.warn(
+      'TOKEN_SECRET was just generated because no secret was found. Every subtitle link already '
+      + 'handed to Stremio is now invalid, and all stored offsets start over. Persist DATA_DIR '
+      + '(docker: -v subsync-data:/data) or set TOKEN_SECRET in the environment to keep them.',
+    );
+  }
   log.info(`providers: ${providers.map((p) => `${p.id}${p.configured ? '' : '(needs key)'}`).join(', ') || 'none'}`);
   log.info(`sync mode: ${config.SYNC_MODE} · llm: ${config.LLM_PROVIDER || 'off'} · audio: ${config.AUDIO_SYNC_ENABLED ? 'on' : 'off'}`);
   log.info(`tools: ffmpeg=${tools.ffmpeg ? 'yes' : 'no'} alass=${tools.alass ? 'yes' : 'no'} ffsubsync=${tools.ffsubsync ? 'yes' : 'no'}`);
   log.info('');
+  log.info(`  Build     : ${buildLabel()}`);
   log.info(`  Configure : ${started.url}/configure`);
   log.info(`  Manifest  : ${started.url}/manifest.json`);
   log.info(`  Install   : paste the manifest URL into Stremio -> Addons -> Install from URL`);

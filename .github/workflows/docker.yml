@@ -84,6 +84,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             INSTALL_FFMPEG=1
+            GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ github.event.repository.pushed_at || github.run_started_at }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -93,6 +95,8 @@ jobs:
         run: |
           {
             echo "### nuvio-sync image built"
+            echo
+            echo "commit: \`${{ github.sha }}\`"
             echo
             echo '```'
             echo "${{ steps.meta.outputs.tags }}"

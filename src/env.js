@@ -93,6 +93,8 @@ export const DEFAULTS = Object.freeze({
 
 /** Effective config cache. */
 let cache = null;
+/** True when this process had to invent a TOKEN_SECRET because DATA_DIR was empty. */
+let generatedSecret = false;
 
 export function parseDotEnv(text) {
   const out = {};
@@ -169,6 +171,7 @@ function ensureDataDir() {
   if (!file.TOKEN_SECRET && !process.env.TOKEN_SECRET) {
     const secret = randomBytes(32).toString('hex');
     saveConfig({ TOKEN_SECRET: secret });
+    generatedSecret = true;
     configLog.info(`generated a new TOKEN_SECRET in ${CONFIG_PATH}`);
   }
 }
@@ -181,6 +184,16 @@ export function getConfig() {
     mkdirSync(DATA_DIR, { recursive: true });
   }
   return cache;
+}
+
+/**
+ * True when no TOKEN_SECRET was supplied (env or file) and one was generated for this process —
+ * every subtitle link handed out before the restart is now invalid, which is exactly what
+ * happens when the data volume is not persisted.
+ */
+export function secretIsEphemeral() {
+  getConfig();
+  return generatedSecret;
 }
 
 export function reloadConfig() {

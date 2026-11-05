@@ -200,9 +200,16 @@ test('the configuration API round-trips and never echoes a secret', async () => 
   assert.deepEqual(fetched.config.PREFERRED_LANGS, ['vi', 'en', 'fr']);
 });
 
-test('health, stats and the pages render', async () => {
+test('health, stats and the pages render, and report which build is running', async () => {
   const health = await (await get('/healthz')).json();
   assert.equal(health.ok, true);
+  assert.equal(typeof health.build.shortSha, 'string');
+  assert.ok(health.build.shortSha.length > 0, 'a deployment must be identifiable without guessing');
+  assert.ok(['env', 'git', 'unknown'].includes(health.build.source));
+  assert.ok(typeof health.uptime === 'number');
+
+  const statsJson = await (await get('/stats')).json();
+  assert.equal(statsJson.build.sha, health.build.sha, 'both endpoints must agree on the build');
 
   const stats = await (await get('/stats')).json();
   assert.ok(stats.stats.offsets >= 1);
@@ -211,7 +218,12 @@ test('health, stats and the pages render', async () => {
 
   const configure = await get('/configure');
   assert.equal(configure.status, 200);
-  assert.match(await configure.text(), /id="installUrl"/);
+  const configureHtml = await configure.text();
+  assert.match(configureHtml, /id="installUrl"/);
+  assert.ok(configureHtml.includes(health.build.shortSha), 'the configure page shows the running build');
+  // This suite supplies TOKEN_SECRET, so the "data will not survive a restart" warning must be
+  // absent. The other branch is covered in test/web/pages.test.js.
+  assert.ok(!configureHtml.includes('dữ liệu không được lưu lại'), 'no false alarm when a secret is supplied');
 
   const root = await get('/', { redirect: 'manual' });
   assert.equal(root.status, 302);

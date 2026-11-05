@@ -11,6 +11,10 @@ FROM node:${NODE_VERSION}
 
 ARG INSTALL_FFMPEG=1
 ARG ALASS_VERSION=v2.0.0
+# Build identity — surfaced by /healthz, /stats, the boot log and /configure so you can tell
+# which build a running container actually is.
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -38,7 +42,9 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=7878 \
     DATA_DIR=/data \
-    LOG_LEVEL=info
+    LOG_LEVEL=info \
+    GIT_SHA=${GIT_SHA} \
+    BUILD_TIME=${BUILD_TIME}
 
 WORKDIR /app
 

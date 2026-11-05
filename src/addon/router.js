@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
-import { getConfig, publicConfig, saveConfig, PROJECT_ROOT } from '../env.js';
+import { getConfig, publicConfig, saveConfig, PROJECT_ROOT, secretIsEphemeral } from '../env.js';
 import { verifyToken, applyTokenPayload, configToTokenPayload, signToken } from './tokens.js';
 import { buildManifest, LOGO_SVG, BACKGROUND_SVG } from './manifest.js';
 import { handleSubtitlesRequest, parseExtra, serveSubtitle } from './pipeline.js';
@@ -13,6 +13,7 @@ import { listProviders } from '../providers/index.js';
 import * as store from '../store/index.js';
 import { renderConfigPage, renderSyncLabPage } from '../web/pages.js';
 import * as lab from '../synclab/routes.js';
+import { getBuildInfo } from '../buildinfo.js';
 import { createLogger } from '../util/log.js';
 
 const routerLog = createLogger('router');
@@ -54,11 +55,25 @@ export async function route(req) {
         if (method === 'GET') return redirect('/configure');
 
         break;
-      case 'healthz':
-        return json(200, { ok: true, version: (await import('./manifest.js')).ADDON_VERSION, uptime: Math.round(process.uptime()) });
+      case 'healthz': {
+        const build = getBuildInfo();
+        return json(200, {
+          ok: true,
+          version: (await import('./manifest.js')).ADDON_VERSION,
+          build: { sha: build.sha, shortSha: build.shortSha, builtAt: build.builtAt, source: build.source },
+          uptime: Math.round(process.uptime()),
+        });
+      }
 
       case 'stats':
-        return json(200, { ok: true, stats: store.stats(), config: publicConfig(config), events: store.recentEvents(20) });
+        return json(200, {
+          ok: true,
+          build: getBuildInfo(),
+          uptime: Math.round(process.uptime()),
+          stats: store.stats(),
+          config: publicConfig(config),
+          events: store.recentEvents(20),
+        });
 
       case 'manifest.json':
         return json(200, buildManifest({ baseUrl }));
@@ -83,6 +98,9 @@ export async function route(req) {
           config: publicConfig(config),
           providers: listProviders(config),
           stats: store.stats(),
+          build: getBuildInfo(),
+          uptime: Math.round(process.uptime()),
+          secretIsEphemeral: secretIsEphemeral(),
         }), contentType: 'text/html; charset=utf-8' };
 
       case 'api':
