@@ -4,7 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -37,4 +37,24 @@ test('one entry per line wins, and commas inside a line do not split it', () => 
     'https://a.example/manifest.json',
     'https://b.example/manifest.json',
   ]);
+});
+
+test('a config.json written by the colon-splitting build heals on read', () => {
+  writeFileSync(join(process.env.DATA_DIR, 'config.json'), JSON.stringify({
+    MEDIA_SOURCE_ADDON: ['https', '//debridmediamanager.com/api/stremio-tb/abc/manifest.json'],
+    LOCAL_MEDIA_ROOTS: ['C', '\\media'],
+  }));
+  const config = reloadConfig();
+  assert.deepEqual(config.MEDIA_SOURCE_ADDON, [
+    'https://debridmediamanager.com/api/stremio-tb/abc/manifest.json',
+  ]);
+  assert.deepEqual(config.LOCAL_MEDIA_ROOTS, ['C:\\media']);
+});
+
+test('a port split into a separate fragment is joined back with its colon', () => {
+  writeFileSync(join(process.env.DATA_DIR, 'config.json'), JSON.stringify({
+    MEDIA_SOURCE_ADDON: ['http', '//127.0.0.1', '7891/manifest.json'],
+  }));
+  const config = reloadConfig();
+  assert.deepEqual(config.MEDIA_SOURCE_ADDON, ['http://127.0.0.1:7891/manifest.json']);
 });

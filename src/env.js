@@ -119,17 +119,49 @@ export function parseDotEnv(text) {
   return out;
 }
 
+/**
+ * Older builds split list values on ':' as well, so a URL could be persisted as
+ * ["https", "//host", "path"] and a Windows path as ["C", "\\media"]. Re-join those pieces
+ * on read, so an existing data/config.json heals itself instead of silently breaking.
+ */
+function rejoinLegacyFragments(items) {
+  const out = [];
+  for (let i = 0; i < items.length; i += 1) {
+    const item = String(items[i]);
+    const next = items[i + 1];
+    if (/^https?$/i.test(item) && typeof next === 'string' && next.startsWith('//')) {
+      let url = `${item}:${next}`;
+      let j = i + 2;
+      // A port was a separate piece too: "http", "//127.0.0.1", "7891/manifest.json".
+      while (j < items.length && /^\d+(?:[/?#]|$)/.test(String(items[j]))) {
+        url += `:${items[j]}`;
+        j += 1;
+      }
+      out.push(url);
+      i = j - 1;
+      continue;
+    }
+    if (/^[A-Za-z]$/.test(item) && typeof next === 'string' && next.startsWith('\\')) {
+      out.push(`${item}:${next}`);
+      i += 1;
+      continue;
+    }
+    out.push(item);
+  }
+  return out;
+}
+
 function coerce(key, value) {
   const def = DEFAULTS[key];
   if (value === undefined || value === null) return undefined;
   if (Array.isArray(def)) {
-    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    if (Array.isArray(value)) return rejoinLegacyFragments(value.map(String).filter(Boolean));
     const text = String(value);
     // The forms ask for one entry per line, which also keeps Windows paths ("C:\media") and
     // URLs (https://…) intact. Only fall back to commas for the short comma-style values
     // (PREFERRED_LANGS=vi,en); a colon is part of every URL, never a list separator.
     const separator = text.includes('\n') ? /\r?\n+/ : /,/;
-    return text.split(separator).map((s) => s.trim()).filter(Boolean);
+    return rejoinLegacyFragments(text.split(separator).map((s) => s.trim()).filter(Boolean));
   }
   if (typeof def === 'boolean') {
     if (typeof value === 'boolean') return value;
@@ -246,6 +278,26 @@ export function publicConfig(config = getConfig()) {
     out[`${key}_SET`] = true;
     out[`${key}_MASK`] = mask(out[key]);
     delete out[key];
+  }
+  return out;
+}
+
+/**
+ * Config safe for debug endpoints (/stats, /api/config): addon URLs often carry a personal
+ * token in the path (e.g. DMM Cast), so keep only scheme + host there.
+ */
+export function redactConfig(config = getConfig()) {
+  const out = publicConfig(config);
+  for (const key of ['MEDIA_SOURCE_ADDON', 'STREMIO_SUBTITLE_ADDONS']) {
+    if (!Array.isArray(out[key])) continue;
+    out[key] = out[key].map((value) => {
+      try {
+        const url = new URL(String(value));
+        return `${url.protocol}//${url.host}/<redacted>`;
+      } catch {
+        return '<redacted>';
+      }
+    });
   }
   return out;
 }

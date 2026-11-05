@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
-import { getConfig, publicConfig, saveConfig, PROJECT_ROOT, secretIsEphemeral } from '../env.js';
+import { getConfig, publicConfig, redactConfig, saveConfig, PROJECT_ROOT, secretIsEphemeral } from '../env.js';
 import { verifyToken, applyTokenPayload, configToTokenPayload, signToken } from './tokens.js';
 import { buildManifest, LOGO_SVG, BACKGROUND_SVG } from './manifest.js';
 import { handleSubtitlesRequest, parseExtra, serveSubtitle } from './pipeline.js';
@@ -72,7 +72,7 @@ export async function route(req) {
           build: getBuildInfo(),
           uptime: Math.round(process.uptime()),
           stats: store.stats(),
-          config: publicConfig(config),
+          config: redactConfig(config),
           events: store.recentEvents(20),
         });
 
@@ -172,7 +172,7 @@ async function handleApi({ method, segments, query, body, baseConfig, log }) {
     if (method === 'GET') {
       return json(200, {
         ok: true,
-        config: publicConfig(baseConfig),
+        config: redactConfig(baseConfig),
         providers: listProviders(baseConfig),
         stats: store.stats(),
       });
@@ -181,7 +181,7 @@ async function handleApi({ method, segments, query, body, baseConfig, log }) {
       const patch = parseBody(body, log);
       if (!patch) return json(400, { ok: false, error: 'invalid JSON body' });
       const next = saveConfig(patch);
-      return json(200, { ok: true, config: publicConfig(next), restartHint: 'các thay đổi có hiệu lực ngay / changes apply immediately' });
+      return json(200, { ok: true, config: redactConfig(next), restartHint: 'các thay đổi có hiệu lực ngay / changes apply immediately' });
     }
     return json(405, { ok: false, error: 'method not allowed' });
   }

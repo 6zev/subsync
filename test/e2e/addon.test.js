@@ -97,6 +97,20 @@ test('the stream resource re-exposes the links of the configured stream addon', 
   }
 });
 
+test('debug endpoints never print credentials embedded in addon URLs', async () => {
+  const { saveConfig } = await import('../../src/env.js');
+  saveConfig({ MEDIA_SOURCE_ADDON: ['https://debrid.example/api/stremio-tb/SECRET123/manifest.json'] });
+  try {
+    const stats = await (await get('/stats')).text();
+    assert.ok(!stats.includes('SECRET123'), '/stats leaked the addon token');
+    assert.match(stats, /debrid\.example/, 'the host should still be visible for debugging');
+    const config = await (await get('/api/config')).text();
+    assert.ok(!config.includes('SECRET123'), '/api/config leaked the addon token');
+  } finally {
+    saveConfig({ MEDIA_SOURCE_ADDON: [] });
+  }
+});
+
 test('the subtitle list exposes the offline sample tracks with 3-letter languages', async () => {
   const subtitles = await trackList();
   assert.equal(subtitles.length, 3);
