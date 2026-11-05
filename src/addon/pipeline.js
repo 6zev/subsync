@@ -82,6 +82,24 @@ function safeSlug(track) {
   return `${base || 'subtitle'}.${ext}`;
 }
 
+/**
+ * What Stremio shows in the subtitle picker.
+ *
+ * Seven entries all called "English" is useless: the release name is the only thing that lets a
+ * viewer pick the copy that matches the file they are playing — and that is usually the copy that
+ * needs no correction at all.
+ * @param {import('../contracts.js').SubtitleTrack} track
+ */
+export function labelFor(track) {
+  const release = String(track.releaseName || track.filename || '')
+    .replace(/\.(srt|vtt|ass|ssa|sub|zip|txt)$/i, '')
+    .replace(/[_.]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!release || release.length < 3) return LANG_NAMES[toLang2(track.lang)] || track.lang || 'unknown';
+  return release.length > 72 ? `${release.slice(0, 69)}…` : release;
+}
+
 /** Convert ASS cue markup so the same cues can be served as SRT. */
 function toPlainCues(doc) {
   return {
@@ -165,7 +183,7 @@ export async function handleSubtitlesRequest(req) {
       id: track.id,
       url: `${req.baseUrl}/s/${token}/${encodeURIComponent(safeSlug(track))}`,
       lang: toLang3(track.lang),
-      ...(LANG_NAMES[toLang2(track.lang)] ? { label: `${LANG_NAMES[toLang2(track.lang)]}` } : {}),
+      label: labelFor(track),
     };
   });
 

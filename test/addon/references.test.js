@@ -58,3 +58,23 @@ test('parseExtra decodes the URL-encoded extra segment Stremio sends', () => {
   assert.equal(extra.filename, 'A.mkv');
   assert.deepEqual(parseExtra(undefined, {}), { videoHash: null, videoSize: null, filename: null, videoID: null, season: null, episode: null });
 });
+
+test('the picker label carries the release name, not just the language', async () => {
+  const { labelFor } = await import('../../src/addon/pipeline.js');
+  assert.equal(
+    labelFor({ provider: 'subsense', lang: 'en', releaseName: 'Inception.2010.1080p.BluRay.x264-SPARKS' }),
+    'Inception 2010 1080p BluRay x264-SPARKS',
+  );
+  assert.equal(labelFor({ provider: 'local', lang: 'vi', filename: 'phim.vi.srt' }), 'phim vi');
+  // Two different releases must never collapse into the same row.
+  assert.notEqual(
+    labelFor({ lang: 'en', releaseName: 'Movie.2010.1080p.BluRay.x264-A' }),
+    labelFor({ lang: 'en', releaseName: 'Movie.2010.720p.WEB-DL-B' }),
+  );
+  // With nothing to say about the release, fall back to the language name.
+  assert.equal(labelFor({ provider: 'test', lang: 'vi' }), 'Vietnamese');
+  assert.equal(labelFor({ provider: 'test', lang: 'en', releaseName: '  ' }), 'English');
+  const long = labelFor({ lang: 'en', releaseName: 'A'.repeat(200) });
+  assert.ok(long.length <= 72, `label too long: ${long.length}`);
+  assert.ok(long.endsWith('…'));
+});
