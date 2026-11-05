@@ -85,10 +85,14 @@ export async function route(req) {
         return { status: 200, body: LOGO_SVG, contentType: 'image/svg+xml', headers: { 'cache-control': 'public, max-age=86400' } };
 
       case 'docs': {
-        const name = segments.slice(1).join('/').replace(/\.\./g, '');
-        if (!name || !/^[\w.-]+\.md$/.test(name)) return text(404, 'not found');
+        let name = segments.slice(1).join('/').replace(/\.\./g, '');
+        // The friendly form has no extension (/docs/nuvio-parity is what the pages link to);
+        // the file on disk is .md.
+        if (name && !/\.[a-z0-9]+$/i.test(name)) name = `${name}.md`;
+        if (!name) return json(200, { ok: true, docs: await listDocs() });
+        if (!/^[\w.-]+\.md$/.test(name)) return text(404, 'not found');
         const body = await readFile(join(PROJECT_ROOT, 'docs', normalize(name)), 'utf8').catch(() => null);
-        return body ? { status: 200, body, contentType: 'text/markdown; charset=utf-8' } : text(404, 'not found');
+        return body ? { status: 200, body, contentType: 'text/markdown; charset=utf-8' } : text(404, `no such doc: ${name}\n`);
       }
 
       case 'configure':
@@ -101,6 +105,7 @@ export async function route(req) {
           build: getBuildInfo(),
           uptime: Math.round(process.uptime()),
           secretIsEphemeral: secretIsEphemeral(),
+          insecure: isPlainRemoteHttp(baseUrl),
         }), contentType: 'text/html; charset=utf-8' };
 
       case 'api':
@@ -203,6 +208,29 @@ function parseBody(body, log) {
     log?.('warn', `invalid JSON body: ${err.message}`);
     return null;
   }
+}
+
+/**
+ * Stremio Web (https://web.stremio.com) refuses to fetch an http:// addon — mixed content — so a
+ * deployment reached over plain HTTP from a non-local host can only be installed in Stremio
+ * Desktop/mobile. Worth saying out loud instead of leaving people staring at a NetworkError.
+ * @param {string} baseUrl
+ */
+function isPlainRemoteHttp(baseUrl) {
+  if (!/^http:\/\//i.test(baseUrl || '')) return false;
+  try {
+    const host = new URL(baseUrl).hostname;
+    return !['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(host);
+  } catch {
+    return false;
+  }
+}
+
+/** Markdown files shipped in docs/, used by the docs index. */
+async function listDocs() {
+  const { readdir } = await import('node:fs/promises');
+  const files = await readdir(join(PROJECT_ROOT, 'docs')).catch(() => []);
+  return files.filter((f) => f.endsWith('.md')).sort().map((f) => `/docs/${f.replace(/\.md$/, '')}`);
 }
 
 async function serveAsset(name) {

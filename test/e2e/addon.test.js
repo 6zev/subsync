@@ -229,6 +229,26 @@ test('health, stats and the pages render, and report which build is running', as
   assert.equal(root.status, 302);
 });
 
+test('the docs links the pages point at actually resolve', async () => {
+  // The configure page links to `docs/nuvio-parity` (no extension) — that used to 404
+  // because only `<name>.md` was routed.
+  const pretty = await get('/docs/nuvio-parity');
+  assert.equal(pretty.status, 200);
+  assert.match(pretty.headers.get('content-type'), /markdown/);
+  assert.match(await pretty.text(), /Nuvio parity/);
+
+  const explicit = await get('/docs/nuvio-parity.md');
+  assert.equal(explicit.status, 200);
+
+  const index = await (await get('/docs')).json();
+  assert.equal(index.ok, true);
+  assert.ok(index.docs.includes('/docs/nuvio-parity'), index.docs.join(','));
+  assert.ok(index.docs.every((d) => !d.endsWith('.md')), 'the index lists the friendly form');
+
+  assert.equal((await get('/docs/nope')).status, 404);
+  assert.equal((await get('/docs/../../etc/passwd')).status, 404);
+});
+
 test('a provider that answers 200 with junk produces an error, never an empty subtitle', async () => {
   const { signToken } = await import('../../src/addon/tokens.js');
   const store = await import('../../src/store/index.js');

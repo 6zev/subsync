@@ -40,6 +40,22 @@ sẵn chỗ khai báo volume thư mục phim).
 
 Ảnh hỗ trợ **linux/amd64 + linux/arm64**. Biến môi trường nhận đúng như `.env.example`.
 
+### HTTPS — bắt buộc nếu dùng Stremio Web
+
+Stremio Web mở ở `https://web.stremio.com`, và trình duyệt **chặn mọi request `http://` từ một
+trang https** (mixed content). Triệu chứng: thêm addon báo
+`NetworkError when attempting to fetch resource` cho `manifest.json`, và console có
+`web.stremio.com/undefined 404`.
+
+| Cách | Việc cần làm |
+| --- | --- |
+| **Nhanh nhất** | Dùng **Stremio Desktop / mobile** — hai bản này nhận URL `http://` bình thường |
+| **Caddy (khuyến nghị)** | `rr6ug0wpndpcnsp08nbx30un.185.225.22.198.sslip.io { reverse_proxy 127.0.0.1:7878 }` → Caddy tự xin cert Let's Encrypt (cần mở port 80/443). **Rồi đặt `PUBLIC_URL=https://<tên-miền>`** — nếu không, addon cài được nhưng link phụ đề vẫn là http và Stremio Web sẽ chặn luôn phần tải phụ đề |
+| **Cloudflare Tunnel** | `cloudflared tunnel --url http://127.0.0.1:7878` → có ngay `https://<random>.trycloudflare.com`, đặt URL đó làm `PUBLIC_URL` |
+
+Khi bị phục vụ qua HTTP từ host không phải localhost, trang `/configure` sẽ **tự cảnh báo**
+kèm đúng ba cách xử lý ở trên.
+
 **Build identity.** CI bake commit sha vào image (`ARG GIT_SHA`), nên `/healthz` và `/stats`
 trả về `build.sha` / `build.shortSha`, trang `/configure` hiện "Bản đang chạy", và log khởi
 động in `nuvio-sync v0.1.0 (a260193, built ...)`. Nhờ vậy không phải đoán deployment đang là

@@ -65,6 +65,19 @@ test('the configure page warns when the token secret had to be invented', () => 
   assert.ok(!quiet.includes('Bản đang chạy'), 'no build row when none was supplied');
 });
 
+test('the configure page explains the mixed-content trap when served over plain http', () => {
+  const base = {
+    manifestUrl: 'http://1.2.3.4/manifest.json', shareUrl: 'http://1.2.3.4/x/manifest.json',
+    config: { PREFERRED_LANGS: [] }, providers: [], stats: {},
+  };
+  const warned = renderConfigPage({ ...base, insecure: true });
+  assert.match(warned, /Stremio Web/);
+  assert.match(warned, /mixed content/);
+  assert.match(warned, /PUBLIC_URL=https:\/\/tên-miền/);
+  assert.match(warned, /cloudflared/);
+  assert.ok(!renderConfigPage(base).includes('mixed content'), 'silent when not flagged');
+});
+
 test('the configure page degrades with no providers', () => {
   const html = renderConfigPage({
     manifestUrl: 'http://x/manifest.json', shareUrl: 'http://x/y/manifest.json',

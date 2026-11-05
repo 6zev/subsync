@@ -102,7 +102,7 @@ ${script ? `<script>${script}</script>` : ''}
 /**
  * @param {{manifestUrl:string, shareUrl:string, config:object, providers:Array<object>, stats:object}} opts
  */
-export function renderConfigPage({ manifestUrl, shareUrl, config, providers = [], stats = {}, build = null, uptime = 0, secretIsEphemeral: ephemeral = false }) {
+export function renderConfigPage({ manifestUrl, shareUrl, config, providers = [], stats = {}, build = null, uptime = 0, secretIsEphemeral: ephemeral = false, insecure = false }) {
   const providerRows = providers.map((p) => `
     <div class="cue">
       <div class="x">
@@ -197,6 +197,20 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
     <button class="ghost tight" type="reset">Khôi phục</button>
   </div>
 </form>
+
+${insecure ? `<div class="card" style="border-color:var(--warn)">
+  <h3 class="warn">Cảnh báo: đang chạy trên HTTP, Stremio Web sẽ không thêm được</h3>
+  <p class="note">Stremio Web mở ở <code>https://web.stremio.com</code>, và trình duyệt chặn mọi
+  request <code>http://</code> từ trang https (mixed content) — bạn sẽ thấy
+  <em>"NetworkError when attempting to fetch resource"</em> cho <code>manifest.json</code>.<br>
+  Ba cách xử lý:<br>
+  • Dùng <strong>Stremio Desktop hoặc mobile</strong> — hai bản này nhận URL http bình thường;<br>
+  • Đặt <strong>Caddy</strong> trước addon để tự lấy chứng chỉ Let's Encrypt, rồi đặt
+  <code>PUBLIC_URL=https://tên-miền</code> (rất quan trọng: nếu không, link phụ đề vẫn là http và
+  Stremio Web sẽ chặn cả phần tải phụ đề);<br>
+  • Hoặc <code>cloudflared tunnel --url http://127.0.0.1:7878</code> để có ngay một URL
+  <code>https://…trycloudflare.com</code>.</p>
+</div>` : ''}
 
 ${ephemeral ? `<div class="card" style="border-color:var(--warn)">
   <h3 class="warn">Cảnh báo: dữ liệu không được lưu lại</h3>
