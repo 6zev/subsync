@@ -86,3 +86,21 @@ test('cuesToSpeechMask covers the cue spans and pads them', () => {
   assert.equal(mask[Math.floor(300 / hopMs)], 0);
   assert.equal(mask[Math.floor(2600 / hopMs)], 1, 'padding keeps the tail on');
 });
+
+test('a declared format that lies is recovered from the content', () => {
+  // SubSense's proxy converts an upstream .ssa to VTT while the entry keeps the .ssa name.
+  assert.equal(parseSubtitles(VTT, { url: 'x.ssa', format: 'ssa' }).cues.length, 2);
+  assert.equal(parseSubtitles(VTT, { url: 'x.ass', format: 'ass' }).cues.length, 2);
+  assert.equal(parseSubtitles(SRT, { url: 'x.vtt', format: 'vtt' }).cues.length, 2);
+  assert.equal(parseSubtitles(ASS, { url: 'x.srt', format: 'srt' }).cues.length, 2);
+  // And the recovered document reports the format that actually parsed.
+  assert.equal(parseSubtitles(VTT, { format: 'ssa' }).format, 'vtt');
+  assert.equal(parseSubtitles(ASS, { format: 'srt' }).format, 'ass');
+});
+
+test('a genuinely empty payload still yields no cues and no throw', () => {
+  for (const bad of ['', '   ', '<html><body>error</body></html>', '{"error":"nope"}']) {
+    const doc = parseSubtitles(bad, { format: 'srt' });
+    assert.equal(doc.cues.length, 0);
+  }
+});

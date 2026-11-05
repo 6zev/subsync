@@ -51,18 +51,33 @@ function fixMojibake(text) {
 export function parseSubtitles(text, { url = '', format } = {}) {
   let raw = fixMojibake(stripBom(String(text ?? '')).replace(/\r\n?/g, '\n'));
   if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
-  const kind = format || detectFormat(raw, url);
-  try {
-    if (kind === 'vtt') return parseVtt(raw);
-    if (kind === 'ass' || kind === 'ssa') return parseAss(raw, kind);
-    const srt = parseSrt(raw);
-    if (srt.cues.length) return srt;
-    // Some hosts mislabel VTT as .srt — retry before giving up.
-    if (/^\s*WEBVTT/.test(raw)) return parseVtt(raw);
-    return srt;
-  } catch {
-    return { format: kind === 'ssa' ? 'ssa' : kind, cues: [], meta: { parseError: true } };
+
+  const detected = detectFormat(raw, url);
+  const declared = format || detected;
+  // A declared format is a hint, not a promise: SubSense's proxy rewrites an upstream .ssa into
+  // VTT while the entry keeps the .ssa file name, and hosts mislabel .vtt as .srt all the time.
+  // Try the declared parser first, then the detected one, then the rest, and keep the first that
+  // actually produces cues.
+  const order = [declared, detected, 'vtt', 'srt', 'ass'].filter((kind, index, all) => kind && all.indexOf(kind) === index);
+  let fallback = null;
+  for (const kind of order) {
+    let doc;
+    try {
+      doc = parseAs(raw, kind);
+    } catch {
+      continue;
+    }
+    if (doc.cues.length) return doc;
+    fallback = fallback || doc;
   }
+  return fallback || { format: declared, cues: [], meta: { parseError: true } };
+}
+
+/** @param {string} raw @param {string} kind */
+function parseAs(raw, kind) {
+  if (kind === 'vtt') return parseVtt(raw);
+  if (kind === 'ass' || kind === 'ssa') return parseAss(raw, kind);
+  return parseSrt(raw);
 }
 
 /* ── SRT ───────────────────────────────────────────────────────────────── */
