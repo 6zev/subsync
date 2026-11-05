@@ -1,0 +1,191 @@
+1
+00:00:14,500 --> 00:00:16,935
+[vi] Good morning, everyone.
+
+2
+00:00:17,835 --> 00:00:20,090
+[vi] Did you sleep well?
+
+3
+00:00:21,240 --> 00:00:23,945
+[vi] Barely. The storm kept me up.
+
+4
+00:00:25,345 --> 00:00:28,005
+[vi] We should leave before noon.
+
+5
+00:00:28,905 --> 00:00:31,700
+[vi] The road south is still closed.
+
+6
+00:00:32,850 --> 00:00:35,285
+[vi] Then we take the river.
+
+7
+00:00:36,685 --> 00:00:39,795
+[vi] Is that even possible in this weather?
+
+8
+00:00:40,695 --> 00:00:42,950
+[vi] It is the only way.
+
+9
+00:00:44,100 --> 00:00:46,985
+[vi] I counted four boats at the dock.
+
+10
+00:00:48,385 --> 00:00:50,640
+[vi] Three of them leak.
+
+11
+00:00:51,540 --> 00:00:53,750
+[vi] Of course they do.
+
+12
+00:00:54,900 --> 00:00:57,740
+[vi] Take the one with the blue sail.
+
+13
+00:00:59,140 --> 00:01:01,530
+[vi] You are enjoying this.
+
+14
+00:01:02,430 --> 00:01:04,235
+[vi] A little.
+
+15
+00:01:05,385 --> 00:01:07,865
+[vi] What about the supplies?
+
+16
+00:01:09,265 --> 00:01:11,340
+[vi] Already loaded.
+
+17
+00:01:12,240 --> 00:01:14,270
+[vi] And the radio?
+
+18
+00:01:15,420 --> 00:01:18,215
+[vi] Dead battery. I left it behind.
+
+19
+00:01:19,615 --> 00:01:21,690
+[vi] We will manage.
+
+20
+00:01:22,590 --> 00:01:25,430
+[vi] That is what you said last time.
+
+21
+00:01:26,580 --> 00:01:28,700
+[vi] And we survived.
+
+22
+00:01:30,100 --> 00:01:31,860
+[vi] By luck.
+
+23
+00:01:32,760 --> 00:01:34,700
+[vi] Luck counts.
+
+24
+00:01:35,850 --> 00:01:38,015
+[vi] Look at that sky.
+
+25
+00:01:39,415 --> 00:01:41,445
+[vi] It is turning.
+
+26
+00:01:42,345 --> 00:01:44,735
+[vi] We have maybe an hour.
+
+27
+00:01:45,885 --> 00:01:48,860
+[vi] Then stop talking and start rowing.
+
+28
+00:01:50,260 --> 00:01:52,110
+[vi] After you.
+
+29
+00:01:53,010 --> 00:01:55,400
+[vi] Careful with the rope.
+
+30
+00:01:56,550 --> 00:01:59,030
+[vi] I have done this before.
+
+31
+00:02:00,430 --> 00:02:03,045
+[vi] Not in a current like this.
+
+32
+00:02:03,945 --> 00:02:06,605
+[vi] Watch the rocks on the left.
+
+33
+00:02:07,755 --> 00:02:09,650
+[vi] I see them.
+
+34
+00:02:11,050 --> 00:02:13,260
+[vi] Hard to starboard!
+
+35
+00:02:14,160 --> 00:02:15,740
+[vi] Now!
+
+36
+00:02:16,890 --> 00:02:18,965
+[vi] That was close.
+
+37
+00:02:20,365 --> 00:02:22,215
+[vi] Too close.
+
+38
+00:02:23,115 --> 00:02:25,280
+[vi] The hull is fine.
+
+39
+00:02:26,430 --> 00:02:28,775
+[vi] The hull is not fine.
+
+40
+00:02:30,175 --> 00:02:32,610
+[vi] We are taking on water.
+
+41
+00:02:33,510 --> 00:02:35,765
+[vi] Bail. I will steer.
+
+42
+00:02:36,915 --> 00:02:38,900
+[vi] For how long?
+
+43
+00:02:40,300 --> 00:02:42,780
+[vi] Until we reach the bend.
+
+44
+00:02:43,680 --> 00:02:46,475
+[vi] There is a cabin past the bend.
+
+45
+00:02:47,625 --> 00:02:49,970
+[vi] Empty since the fire.
+
+46
+00:02:51,370 --> 00:02:53,220
+[vi] Not empty.
+
+47
+00:02:54,120 --> 00:02:56,375
+[vi] You are impossible.
+
+48
+00:02:57,525 --> 00:02:59,555
+[vi] I am prepared.

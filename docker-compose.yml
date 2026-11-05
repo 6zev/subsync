@@ -1,0 +1,43 @@
+# docker compose up -d
+#
+# Builds locally from this checkout. To use the published image instead, comment out `build`
+# and keep `image`, then: docker compose pull && docker compose up -d
+services:
+  nuvio-sync:
+    image: ghcr.io/6zev/subsync:latest
+    build:
+      context: .
+      args:
+        # Set to 0 for a smaller image without the audio-alignment stage.
+        INSTALL_FFMPEG: 1
+    container_name: subsync
+    restart: unless-stopped
+    ports:
+      - "7878:7878"
+    environment:
+      # Set this to the LAN address Stremio will reach the addon on, otherwise the subtitle
+      # links handed to Stremio point at the container's own idea of its hostname.
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:7878}
+      PREFERRED_LANGS: ${PREFERRED_LANGS:-vi,en}
+      ENABLED_PROVIDERS: ${ENABLED_PROVIDERS:-opensubtitles,subsense,subdl,podnapisi,addons,local}
+      SYNC_MODE: ${SYNC_MODE:-fast}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Optional — see .env.example for the full list.
+      # OPENSUBTITLES_API_KEY: ""
+      # SUBDL_API_KEY: ""
+      # LLM_PROVIDER: groq
+      # LLM_API_KEY: ""
+      # AUDIO_SYNC_ENABLED: "true"
+      # AUDIO_ANALYZE_WINDOW_MS: "600000"
+      # LOCAL_MEDIA_ROOTS: /media
+      # STREMIO_SUBTITLE_ADDONS: https://opensubtitles-v3.strem.io/manifest.json
+
+    volumes:
+      # Offsets, the synced-subtitle cache and data/config.json live here.
+      - subsync-data:/data
+      # Mount your library read-only so the audio stage can find the file being played.
+      # - /mnt/media:/media:ro
+
+volumes:
+  subsync-data:

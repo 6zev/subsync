@@ -1,0 +1,32 @@
+{
+  "name": "nuvio-sync",
+  "version": "0.1.0",
+  "description": "Stremio subtitle addon with Nuvio-style auto subtitle sync (text alignment + LLM cue matching + audio VAD alignment + tap-to-sync lab)",
+  "type": "module",
+  "license": "GPL-3.0",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
+    "test:sync": "node --test test/sync/*.test.js",
+    "test:providers": "node --test test/providers/*.test.js",
+    "test:web": "node --test test/web/*.test.js",
+    "test:e2e": "node --test test/e2e/*.test.js",
+    "verify": "node --test"
+  },
+  "keywords": [
+    "stremio",
+    "stremio-addon",
+    "subtitles",
+    "subtitle-sync",
+    "ffsubsync",
+    "alass",
+    "nuvio"
+  ],
+  "dependencies": {},
+  "devDependencies": {}
+}
