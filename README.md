@@ -159,7 +159,7 @@ Cấu hình được lưu ở `data/config.json` (đè lên `.env`). Xem `.env.e
 | Thêm nguồn sub không cần key | — | đã bật sẵn (`SUBSENSE_URL`) |
 | Tự đồng bộ theo phụ đề khác (nhanh) | — | `SYNC_MODE=fast` |
 | Thêm tầng LLM | key Groq/Gemini | `LLM_PROVIDER` + `LLM_API_KEY` |
-| Căn theo âm thanh | `ffmpeg` + file phim truy cập được | `AUDIO_SYNC_ENABLED=true`, `SYNC_MODE=full`, `LOCAL_MEDIA_ROOTS` |
+| Căn theo âm thanh | `ffmpeg` + tìm được file phim | `AUDIO_SYNC_ENABLED=true`, `SYNC_MODE=full`, + `MEDIA_SOURCE_ADDON` (hoặc `LOCAL_MEDIA_ROOTS`) |
 
 ---
 
@@ -302,7 +302,7 @@ biết nó đã bị dịch bao nhiêu và bằng cách nào.
 ## 6. Kiểm thử
 
 ```bash
-npm test          # 120 test (node:test, không cần dependency)
+npm test          # 129 test (node:test, không cần dependency)
 npm run test:e2e  # bật HTTP server thật rồi gọi như Stremio + 1 video ffmpeg thật
 ```
 
@@ -344,7 +344,7 @@ docs/                 nuvio-parity · architecture · api
 Dockerfile            node:24-slim + ffmpeg (+ alass trên amd64)
 docker-compose.yml    1 service, volume /data cho offset & cache
 .github/workflows/    test -> buildx -> ghcr.io (amd64 + arm64)
-test/                 120 test
+test/                 129 test
 ```
 
 ---
@@ -355,9 +355,20 @@ test/                 120 test
   Đang xem mà đổi offset thì phải chọn lại phụ đề trong Stremio.
 - Đổi offset một lần là áp cho **mọi** lần chọn track đó (đúng như `persistTrackPreference`
   của Nuvio). Muốn về gốc: nút Reset trong Sync Lab.
-- Căn theo âm thanh cần addon **truy cập được file phim** (ổ đĩa cùng máy, URL trực tiếp,
-  hoặc debrid). Nếu phim phát qua torrent trong Stremio thì dùng ô "Gắn nguồn phim" để dán
-  magnet — với debrid đã cấu hình, addon sẽ tự lấy link.
+- Căn theo âm thanh cần addon **tự tìm được file phim**, và Stremio **không** gửi link stream
+  cho addon phụ đề. Ba cách, theo thứ tự addon thử:
+
+  1. **`MEDIA_SOURCE_ADDON`** — dán manifest URL của addon stream bạn đang dùng (Torrentio,
+     v.v.). Nếu addon đó đã gắn debrid thì câu trả lời `/stream/` của nó có link phát trực tiếp
+     → **không cần khai báo debrid lần thứ hai ở đây**. Nếu nó chỉ trả `infoHash`, addon sẽ
+     dùng hash đó với key debrid *nếu* bạn có khai báo;
+  2. **`LOCAL_MEDIA_ROOTS`** — khi addon chạy cạnh thư viện phim: khớp theo hash
+     OpenSubtitles của file → đúng dung lượng → dung lượng + tên → tên gần giống. Ô này cũng
+     quét luôn `.srt/.ass` nằm cạnh phim để làm nguồn phụ đề;
+  3. Ô "Gắn nguồn phim" trong Sync Lab — dán đường dẫn / URL / magnet cho đúng video đó.
+
+  Cả ba đều **không bắt buộc**: không có gì thì tầng `audio` tự bỏ qua và addon vẫn chạy bằng
+  hai tầng trên.
 - Chỉ nhận `type` movie/series với id `tt…` (IMDB).
 - Cảnh báo: tìm theo hash sẽ **tiêu 1 lượt tải/ngày** của OpenSubtitles, nên addon chỉ gọi
   `/download` khi Stremio thật sự tải phụ đề (lazy).

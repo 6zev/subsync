@@ -353,7 +353,15 @@ async function runSync({ videoKey, trackId, videoHash, videoSize, filename, conf
   let mediaHeaders = null;
   let referencePath = null;
   if (allowAudio && config.AUDIO_SYNC_ENABLED) {
-    const media = await resolveMedia({ videoKey, videoHash, videoSize, filename }).catch(() => ({ kind: 'none' }));
+    const videoInfo = store.kvGet(`video:${videoKey}`) || {};
+    const media = await resolveMedia({
+      videoKey,
+      videoHash,
+      videoSize,
+      filename,
+      type: videoInfo.type,
+      id: videoInfo.id,
+    }).catch(() => ({ kind: 'none' }));
     if (media.kind !== 'none') {
       mediaPath = media.path;
       mediaHeaders = media.headers;

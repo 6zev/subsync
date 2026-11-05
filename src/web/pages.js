@@ -77,6 +77,8 @@ letter-spacing:.02em;text-align:center;padding:10px 0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:620px){.grid2{grid-template-columns:1fr}}
 .footer{margin-top:26px;color:var(--mut);font-size:12.5px;text-align:center}
+details.adv>summary{cursor:pointer;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+details.adv[open]>summary{color:var(--fg);margin-bottom:4px}
 `;
 
 /**
@@ -174,13 +176,22 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
     <input name="LLM_MODEL" value="${escapeHtml(config.LLM_MODEL || '')}">
   </div>
 
-  <div class="card">
-    <h3>Phim &amp; debrid (cho căn chỉnh theo âm thanh)</h3>
-    <label>Thư mục phim trên máy này</label>
+  <details class="card adv">
+    <summary>Nâng cao — chỉ cần khi bật "căn chỉnh theo âm thanh"</summary>
+    <p class="note" style="margin-top:12px">
+      Tầng căn theo âm thanh cần chạm tới <strong>file phim thật</strong>. Stremio không gửi link
+      stream cho addon phụ đề, nên addon phải tự tìm lấy. <strong>Nếu bạn đã dùng một addon
+      stream có gắn debrid sẵn</strong> (Torrentio + Real-Debrid, v.v.) thì chỉ cần dán manifest
+      URL của nó vào ô đầu tiên — <em>không cần khai báo debrid lần thứ hai</em>.
+    </p>
+    <label>Addon stream đang dùng (manifest.json, cách nhau bằng dấu phẩy)</label>
+    <input name="MEDIA_SOURCE_ADDON" value="${escapeHtml((config.MEDIA_SOURCE_ADDON || []).join(','))}"
+           placeholder="https://torrentio.strem.fun/manifest.json">
+    <label>Thư mục phim trên máy chạy addon (dùng khi addon nằm cạnh thư viện phim)</label>
     <input name="LOCAL_MEDIA_ROOTS" value="${escapeHtml((config.LOCAL_MEDIA_ROOTS || []).join(':'))}" placeholder="/mnt/phim:/data/media">
     <div class="grid2">
       <div>
-        <label>Debrid</label>
+        <label>Debrid (chỉ khi addon stream không trả link trực tiếp)</label>
         <select name="DEBRID_PROVIDER">
           ${['', 'realdebrid', 'torbox', 'alldebrid'].map((p) => `<option value="${p}" ${config.DEBRID_PROVIDER === p ? 'selected' : ''}>${p || 'không dùng'}</option>`).join('')}
         </select>
@@ -190,7 +201,7 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
         <input name="DEBRID_API_KEY" placeholder="${escapeHtml(config.DEBRID_API_KEY_MASK || 'chưa đặt')}">
       </div>
     </div>
-  </div>
+  </details>
 
   <div class="row">
     <button class="primary" type="submit">Lưu cấu hình</button>

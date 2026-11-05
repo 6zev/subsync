@@ -82,6 +82,12 @@ export const DEFAULTS = Object.freeze({
   AUDIO_ANALYZE_WINDOW_MS: 0,
 
   // Media resolution
+  /**
+   * Stream addon manifest URL(s). When you already run a debrid-configured stream addon, this is
+   * all the audio stage needs — no second debrid key. Its /stream/ answer usually carries a
+   * directly playable url.
+   */
+  MEDIA_SOURCE_ADDON: [],
   LOCAL_MEDIA_ROOTS: [],
   DEBRID_PROVIDER: '',
   DEBRID_API_KEY: '',

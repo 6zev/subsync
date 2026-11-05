@@ -9,6 +9,7 @@ import { getConfig } from '../env.js';
 import { kvGet, kvSet } from '../store/index.js';
 import { getMediaIndex, openSubtitlesHash, isVideoFile } from './hash.js';
 import { resolveDebrid, parseTorrentRef } from './debrid.js';
+import { resolveFromStreamAddon } from './stream-addon.js';
 import { releaseSimilarity } from '../util/text.js';
 import { createLogger } from '../util/log.js';
 
@@ -79,7 +80,29 @@ export async function resolveMedia(req) {
     if (match) return { kind: 'local', path: match.path, reason: match.reason, title: match.name };
   }
 
-  // 3. debrid (opt-in, slow — only when the caller explicitly allows it)
+  // 3. ask the user's own stream addon — it already resolved the link for the player, and when
+  //    it is debrid-configured its answer carries a directly playable url (no key needed here).
+  const streamAddons = config.MEDIA_SOURCE_ADDON || [];
+  if (streamAddons.length && req.type && req.id) {
+    for (const manifestUrl of streamAddons) {
+      const borrowed = await resolveFromStreamAddon({
+        manifestUrl,
+        type: req.type,
+        id: req.stremioId || req.id,
+        filename,
+        log: mediaLog,
+      }).catch(() => null);
+      if (borrowed?.kind === 'url' && borrowed.url) {
+        kvSet(KV_URL(videoKey), { url: borrowed.url, expiresAt: Date.now() + 6 * 3600 * 1000, filename: borrowed.title });
+        return { kind: 'url', path: borrowed.url, reason: borrowed.reason, title: borrowed.title };
+      }
+      if (borrowed?.kind === 'infohash' && config.DEBRID_PROVIDER && config.DEBRID_API_KEY) {
+        kvSet(KV_MAGNET(videoKey), { infoHash: borrowed.infoHash, fileIdx: borrowed.fileIdx });
+      }
+    }
+  }
+
+  // 4. debrid (opt-in, slow — only when the caller explicitly allows it)
   if (req.allowDebrid !== false) {
     const ref = kvGet(KV_MAGNET(videoKey));
     if (ref && config.DEBRID_PROVIDER && config.DEBRID_API_KEY) {
