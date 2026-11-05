@@ -125,8 +125,10 @@ function coerce(key, value) {
   if (Array.isArray(def)) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
     const text = String(value);
-    // The forms ask for one entry per line, which also keeps Windows paths ("C:\media") intact.
-    const separator = text.includes('\n') ? /\r?\n+/ : /[,:]/;
+    // The forms ask for one entry per line, which also keeps Windows paths ("C:\media") and
+    // URLs (https://…) intact. Only fall back to commas for the short comma-style values
+    // (PREFERRED_LANGS=vi,en); a colon is part of every URL, never a list separator.
+    const separator = text.includes('\n') ? /\r?\n+/ : /,/;
     return text.split(separator).map((s) => s.trim()).filter(Boolean);
   }
   if (typeof def === 'boolean') {

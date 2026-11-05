@@ -9,6 +9,7 @@ import { getConfig, publicConfig, saveConfig, PROJECT_ROOT, secretIsEphemeral } 
 import { verifyToken, applyTokenPayload, configToTokenPayload, signToken } from './tokens.js';
 import { buildManifest, LOGO_SVG, BACKGROUND_SVG } from './manifest.js';
 import { handleSubtitlesRequest, parseExtra, serveSubtitle } from './pipeline.js';
+import { listStreamsFromAddons } from '../media/stream-addon.js';
 import { listProviders } from '../providers/index.js';
 import * as store from '../store/index.js';
 import { renderConfigPage, renderSyncLabPage } from '../web/pages.js';
@@ -18,7 +19,7 @@ import { createLogger } from '../util/log.js';
 
 const routerLog = createLogger('router');
 
-const ROOTS = new Set(['manifest.json', 'subtitles', 's', 'configure', 'api', 'assets', 'synclab', 'healthz', 'stats', 'docs', 'favicon.ico', 'logo.svg', '']);
+const ROOTS = new Set(['manifest.json', 'subtitles', 'stream', 's', 'configure', 'api', 'assets', 'synclab', 'healthz', 'stats', 'docs', 'favicon.ico', 'logo.svg', '']);
 
 /**
  * @param {{method:string, pathname:string, query:Record<string,string>, headers:Record<string,string>,
@@ -127,6 +128,24 @@ export async function route(req) {
         }
         const result = await handleSubtitlesRequest({ type, id, extra, config, baseUrl, embedConfig, log });
         return json(200, { subtitles: result.subtitles });
+      }
+
+      case 'stream': {
+        if (method !== 'GET') return text(405, 'method not allowed');
+        const [, type, rawId] = segments;
+        if (!type || !rawId) return json(400, { err: 'bad request' });
+        const id = rawId.replace(/\.json$/i, '');
+        // Only IMDB ids can be answered; anything else gets an empty list, as Stremio expects.
+        if (!['movie', 'series'].includes(type) || !/^tt\d+(:\d+:\d+)?$/.test(id)) {
+          return json(200, { streams: [] });
+        }
+        const streams = await listStreamsFromAddons({
+          manifestUrls: config.MEDIA_SOURCE_ADDON || [],
+          type,
+          id,
+          log,
+        });
+        return json(200, { streams });
       }
 
       case 's': {

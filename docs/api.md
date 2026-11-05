@@ -27,6 +27,26 @@ Manifest addon phụ đề. Cũng có thể nhúng cấu hình vào URL:
 
 `lang` luôn là mã ISO 639-2/B 3 chữ cái (Stremio yêu cầu).
 
+### `GET /stream/:type/:id.json`
+
+Trả danh sách nguồn phát bằng cách hỏi lại các addon stream trong `MEDIA_SOURCE_ADDON`
+(mỗi dòng một manifest URL) — cùng câu hỏi Stremio đã hỏi addon đó, nên link debrid/torrent
+hiện lại đúng trong mục Sources.
+
+- `type`: `movie` | `series`; `id`: `tt1234567` hoặc `tt1234567:2:5`.
+- Chỉ giữ entry có `url` http(s) hoặc `infoHash` 40 hex; entry trùng bị lọc; tối đa 80 entry.
+- Không cấu hình gì (hoặc addon lỗi) → `{"streams":[]}`, không phải lỗi HTTP.
+- Cache trong bộ nhớ 3 phút theo `type:id` + danh sách addon.
+
+```json
+{
+  "streams": [
+    { "name": "DMM Cast", "title": "Movie.2024.1080p.WEB-DL.mkv",
+      "url": "https://debrid-cdn.example/d/…/Movie.2024.1080p.WEB-DL.mkv" }
+  ]
+}
+```
+
 ### `GET /s/:token/:name.srt`
 
 Tải phụ đề **đã được căn**. Đây là lúc addon làm việc nặng:

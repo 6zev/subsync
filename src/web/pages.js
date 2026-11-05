@@ -133,13 +133,15 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
 
 <form id="cfgForm" method="post" action="api/config">
   <div class="card">
-    <h3>Nguồn phim — cho tầng căn theo âm thanh</h3>
+    <h3>Nguồn phim — cho tầng căn theo âm thanh và resource stream</h3>
     <p class="note">
       Stremio <strong>không</strong> gửi link stream cho addon phụ đề, nên addon phải tự hỏi addon
       stream của bạn để biết <strong>đúng file nào đang phát</strong>. Đây là nguồn chính xác nhất
       (nó nói cả tên release), và nếu addon đó <strong>đã gắn debrid sẵn</strong> thì câu trả lời
       của nó đã có link phát trực tiếp — <em>bạn không cần khai báo debrid lần thứ hai</em>.
-      Bỏ trống cũng không sao: tầng âm thanh tự tắt, addon vẫn chạy bằng hai tầng trên.
+      Danh sách này còn được trả lại qua resource <code>stream</code>, nên mở phim trong Stremio
+      bạn thấy đúng các nguồn đó trong mục Sources. Bỏ trống cũng không sao: resource stream trả
+      danh sách rỗng, tầng âm thanh tự tắt, addon vẫn chạy bằng hai tầng trên.
     </p>
     <label>Addon stream đang dùng — mỗi dòng một URL manifest.json</label>
     <textarea name="MEDIA_SOURCE_ADDON" rows="3"

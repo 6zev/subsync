@@ -20,10 +20,12 @@ export function buildManifest({ baseUrl } = { baseUrl: '' }) {
     description:
       'Subtitle addon with Nuvio-style auto sync: cross-subtitle text alignment, LLM cue matching '
       + '(Groq/Gemini) and audio alignment, applied by rewriting timestamps before Stremio plays them. '
-      + 'Offsets are remembered per video, and a Sync Lab page lets you calibrate one tap at a time.',
+      + 'Offsets are remembered per video, and a Sync Lab page lets you calibrate one tap at a time. '
+      + 'It also lists the playable links of the stream addon you already use, so they stay visible '
+      + 'in Stremio while the subtitle sync borrows the same file.',
     logo: baseUrl ? `${baseUrl}/assets/logo.svg` : undefined,
     background: baseUrl ? `${baseUrl}/assets/background.svg` : undefined,
-    resources: ['subtitles'],
+    resources: ['subtitles', 'stream'],
     types: ['movie', 'series'],
     idPrefixes: ['tt'],
     catalogs: [],

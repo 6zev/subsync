@@ -12,7 +12,7 @@ import { join } from 'node:path';
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'nuvio-media-'));
 process.env.LOG_LEVEL = 'silent';
 
-const { resolveFromStreamAddon, safeHost } = await import('../../src/media/stream-addon.js');
+const { resolveFromStreamAddon, listStreamsFromAddons, clearStreamListCache, safeHost } = await import('../../src/media/stream-addon.js');
 const { saveConfig, getConfig, reloadConfig } = await import('../../src/env.js');
 const { resolveMedia } = await import('../../src/media/index.js');
 
@@ -21,6 +21,7 @@ const DIRECT = 'https://debrid-cdn.example/d/AAAA/Inception.2010.1080p.BluRay.x2
 
 let base = '';
 let server;
+let listHits = 0;
 
 before(async () => {
   server = createServer((req, res) => {
@@ -42,6 +43,23 @@ before(async () => {
       return send(200, { streams: [{ name: 'StubQuery', title: 'Inception.2010.1080p.BluRay', infoHash: 'B2F9BAFE72D33707BF9E6B7C5E018CEFBB54EF50', fileIdx: 2 }] });
     }
     if (req.url === '/stream/movie/ttBOOM.json') return send(500, { error: 'boom' });
+    if (req.url === '/stream/movie/ttLIST.json') {
+      return send(200, {
+        streams: [
+          { name: 'A', title: 'playable one', url: 'https://cdn.example/a.mkv' },
+          { name: 'A', title: 'the same link again', url: 'https://cdn.example/a.mkv' },
+          { name: 'B', title: 'hashed', infoHash: 'B2F9BAFE72D33707BF9E6B7C5E018CEFBB54EF50', fileIdx: 1 },
+          { name: 'C', title: 'not http', url: 'javascript:alert(1)' },
+          { name: 'D', title: 'bad hash', infoHash: 'nope' },
+          { name: 'E', title: 'magnet url', url: 'magnet:?xt=urn:btih:abc' },
+          null,
+        ],
+      });
+    }
+    if (req.url === '/stream/movie/ttCACHE.json') {
+      listHits += 1;
+      return send(200, { streams: [{ name: 'A', title: `hit ${listHits}`, url: 'https://cdn.example/c.mkv' }] });
+    }
     return send(404, { error: 'nope' });
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -165,4 +183,39 @@ test('a stream addon answering with a different release is refused while a local
   });
   assert.equal(media.kind, 'none', 'must not align against an unrelated release');
   assert.match(media.reason, /no local file/);
+});
+
+/* ── our own /stream resource: relaying the user's stream addon ── */
+
+test('listStreamsFromAddons flattens, de-duplicates and drops unplayable entries', async () => {
+  const streams = await listStreamsFromAddons({
+    manifestUrls: [`${base}/manifest.json`, `${base}/manifest.json`],
+    type: 'movie', id: 'ttLIST', log: () => {},
+  });
+  assert.equal(streams.length, 2, JSON.stringify(streams));
+  assert.equal(streams[0].url, 'https://cdn.example/a.mkv');
+  assert.equal(streams[1].infoHash, 'b2f9bafe72d33707bf9e6b7c5e018cefbb54ef50');
+  assert.equal(streams[1].fileIdx, 1);
+  assert.ok(streams.every((s) => s.url || s.infoHash));
+});
+
+test('listStreamsFromAddons is empty when no addon is configured or it fails', async () => {
+  assert.deepEqual(await listStreamsFromAddons({ manifestUrls: [], type: 'movie', id: 'tt137' }), []);
+  const broken = await listStreamsFromAddons({
+    manifestUrls: ['', `${base}/manifest.json`], type: 'movie', id: 'ttBOOM', log: () => {},
+  });
+  assert.deepEqual(broken, []);
+});
+
+test('consecutive stream requests hit a short cache instead of the addon', async () => {
+  clearStreamListCache();
+  listHits = 0;
+  const urls = [`${base}/manifest.json`];
+  const first = await listStreamsFromAddons({ manifestUrls: urls, type: 'movie', id: 'ttCACHE', log: () => {} });
+  const second = await listStreamsFromAddons({ manifestUrls: urls, type: 'movie', id: 'ttCACHE', log: () => {} });
+  assert.equal(listHits, 1, 'second call must be served from cache');
+  assert.deepEqual(second, first);
+  clearStreamListCache();
+  await listStreamsFromAddons({ manifestUrls: urls, type: 'movie', id: 'ttCACHE', log: () => {} });
+  assert.equal(listHits, 2, 'clearing the cache forces a fresh answer');
 });

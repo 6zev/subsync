@@ -46,10 +46,55 @@ test('the manifest is a valid subtitle addon manifest', async () => {
   assert.equal(res.status, 200);
   const manifest = await res.json();
   assert.equal(manifest.id, 'org.nuviosync.subtitles');
-  assert.deepEqual(manifest.resources, ['subtitles']);
+  assert.deepEqual(manifest.resources, ['subtitles', 'stream']);
   assert.deepEqual(manifest.types, ['movie', 'series']);
   assert.ok(manifest.behaviorHints.configurable);
   assert.match(manifest.logo, /^http:\/\/127\.0\.0\.1:\d+\/assets\/logo\.svg$/);
+});
+
+test('the stream resource re-exposes the links of the configured stream addon', async () => {
+  const { createServer } = await import('node:http');
+  const { saveConfig } = await import('../../src/env.js');
+  const stub = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    if (req.url === '/stream/movie/tt7654321.json') {
+      res.end(JSON.stringify({
+        streams: [
+          { name: 'DMM Cast', title: 'Demo.2024.1080p.WEB-DL\nDD 5.1 • more', url: 'https://debrid.example/d/1/Demo.2024.1080p.WEB-DL.mkv' },
+          { name: 'DMM Cast', title: 'the exact same link again', url: 'https://debrid.example/d/1/Demo.2024.1080p.WEB-DL.mkv' },
+          { name: 'Torrent', title: 'Demo.2024.1080p', infoHash: 'B2F9BAFE72D33707BF9E6B7C5E018CEFBB54EF50', fileIdx: 3 },
+          { name: 'Broken', title: 'no playable field at all' },
+        ],
+      }));
+      return;
+    }
+    res.end(JSON.stringify({ streams: [] }));
+  });
+  await new Promise((resolve) => stub.listen(0, '127.0.0.1', resolve));
+  const stubUrl = `http://127.0.0.1:${stub.address().port}`;
+  try {
+    saveConfig({ MEDIA_SOURCE_ADDON: [`${stubUrl}/manifest.json`] });
+
+    const res = await get('/stream/movie/tt7654321.json');
+    assert.equal(res.status, 200);
+    const { streams } = await res.json();
+    assert.equal(streams.length, 2, 'duplicates and unplayable entries are dropped');
+    assert.equal(streams[0].url, 'https://debrid.example/d/1/Demo.2024.1080p.WEB-DL.mkv');
+    assert.equal(streams[1].infoHash, 'b2f9bafe72d33707bf9e6b7c5e018cefbb54ef50');
+    assert.equal(streams[1].fileIdx, 3);
+
+    const unknown = await (await get('/stream/movie/tt0000000.json')).json();
+    assert.deepEqual(unknown.streams, [], 'an unknown id must be an empty list, not an error');
+
+    const badId = await (await get('/stream/movie/not-an-imdb-id.json')).json();
+    assert.deepEqual(badId.streams, []);
+
+    const post = await get('/stream/movie/tt7654321.json', { method: 'POST' });
+    assert.equal(post.status, 405);
+  } finally {
+    saveConfig({ MEDIA_SOURCE_ADDON: [] });
+    await new Promise((resolve) => stub.close(resolve));
+  }
 });
 
 test('the subtitle list exposes the offline sample tracks with 3-letter languages', async () => {

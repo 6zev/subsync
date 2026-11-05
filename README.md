@@ -123,6 +123,9 @@ Nghĩa là file Stremio nhận được *đã đúng giờ sẵn* — và còn s
   - **C. Chỉnh tay**: offset (ms) + rate, và Reset.
   - Xem trước và tải `.srt` đã đồng bộ.
 - **Nhớ offset**: căn một lần, các lần sau tức thì (cache SQLite).
+- **Thấy luôn nguồn phát**: addon cũng khai báo resource `stream`, trả lại danh sách link của
+  `MEDIA_SOURCE_ADDON` (addon debrid/torrent bạn đang dùng) — mở phim là thấy các nguồn đó
+  trong mục Sources, kèm nhãn release gốc. Không cấu hình gì thì danh sách rỗng, không phải lỗi.
 - **Không bao giờ làm bạn chờ**: khi Stremio tải phụ đề, addon chỉ giữ tối đa
   `AUTO_SYNC_BUDGET_MS` (mặc định 9 s); quá hạn thì trả file gốc ngay và **đồng bộ tiếp ở
   nền** — lần chọn tiếp theo đã có sẵn bản đã căn.
@@ -285,6 +288,7 @@ GET  /manifest.json
 GET  /configure                         trang cấu hình
 GET  /api/config | POST /api/config
 GET  /subtitles/:type/:id[/:extra].json
+GET  /stream/:type/:id.json             liệt kê link phát từ MEDIA_SOURCE_ADDON
 GET  /s/:token/:name.srt                trả phụ đề ĐÃ căn (Stremio gọi cái này)
 GET  /synclab?t=TOKEN                   Sync Lab
 GET  /api/synclab/session|cues|preview|tracks
@@ -377,6 +381,13 @@ test/                 132 test
 - Cảnh báo: tìm theo hash sẽ **tiêu 1 lượt tải/ngày** của OpenSubtitles, nên addon chỉ gọi
   `/download` khi Stremio thật sự tải phụ đề (lazy).
 - SubSource: chưa triển khai (endpoint công khai không ổn định) — xem `docs/architecture.md`.
+
+- **Resource `stream` chỉ là bản sao**: nó hỏi lại đúng addon trong `MEDIA_SOURCE_ADDON` rồi
+  trả lại link y nguyên. Nếu addon gốc vẫn đang cài, Stremio sẽ hiện hai nhóm nguồn giống nhau
+  (một của addon gốc, một của nuvio-sync) — muốn gọn thì tắt bớt một bên. Ai có URL addon này
+  cũng xem được danh sách đó, giống như khi họ có URL addon stream gốc.
+- **Resource `stream` không tự tạo nguồn**: nó không có debrid riêng, không tải torrent; chỉ
+  chuyển tiếp kết quả của addon bạn đã cấu hình.
 
 ## 9. Hướng phát triển
 
