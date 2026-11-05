@@ -254,6 +254,50 @@ test('promotional cues injected by free mirrors never reach the player', async (
   assert.equal(stripPromoCues({ format: 'srt', cues: [], meta: {} }).cues.length, 0);
 });
 
+test('a promo cue never survives the SYNC path either', async () => {
+  const { signToken } = await import('../../src/addon/tokens.js');
+  const store = await import('../../src/store/index.js');
+  const { writeFileSync, mkdtempSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+
+  const dir = mkdtempSync(join(tmpdir(), 'nuvio-promo-'));
+  const dump = (shiftMs, trailer) => {
+    const lines = [];
+    for (let i = 0; i < 24; i += 1) {
+      const start = 20_000 + i * 4_000 + shiftMs;
+      const fmt = (v) => {
+        const h = Math.floor(v / 3600000), m = Math.floor((v % 3600000) / 60000), sec = Math.floor((v % 60000) / 1000);
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')},${String(v % 1000).padStart(3, '0')}`;
+      };
+      lines.push(`${i + 1}\n${fmt(start)} --> ${fmt(start + 2000)}\ndialogue line number ${i}\n`);
+    }
+    const first = `1\n00:00:00,000 --> 00:00:06,000\n${trailer}\n`;
+    return `${first}\n${lines.join('\n')}`;
+  };
+  const a = join(dir, 'a.en.srt');
+  const b = join(dir, 'b.fr.srt');
+  const c = join(dir, 'c.en.srt');
+  writeFileSync(a, dump(0, "You're on the free plan. Unlock every source → store.wyzie.io"));
+  writeFileSync(b, dump(-3000, 'Watch Online Movies and Series for FREE\nwww.osdb.link/lm'));
+  // Two corroborating references, otherwise the consensus gate keeps the offset as a suggestion.
+  writeFileSync(c, dump(-3000, 'Advertise your product or brand here'));
+
+  const videoKey = store.videoKeyOf({ type: 'movie', id: 'ttPROMO' });
+  store.putTrack({ id: 'local:a', provider: 'local', lang: 'en', url: `file:${a}`, format: 'srt', source: 'local' }, videoKey, 'primary');
+  store.putTrack({ id: 'local:b', provider: 'local', lang: 'fr', url: `file:${b}`, format: 'srt', source: 'local' }, videoKey, 'primary');
+  store.putTrack({ id: 'local:c', provider: 'local', lang: 'en', url: `file:${c}`, format: 'srt', source: 'local' }, videoKey, 'primary');
+
+  const token = signToken({ v: videoKey, i: 'local:a' }, { ttlMs: 3600_000 });
+  const res = await get(`/s/${token}/promo.srt`);
+  const body = await res.text();
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('x-nuvio-sync-method'), 'text', 'the sync path must have run');
+  assert.ok(!/wyzie|osdb\.link|free plan|Watch Online Movies/i.test(body), `promo text leaked:\n${body.slice(0, 240)}`);
+  const cues = body.trim().split(/\n\n+/).length;
+  assert.ok(cues >= 24, `expected the real cues to survive, got ${cues}`);
+});
+
 function parseFirstCue(body) {
   const lines = body.split('\n');
   const timing = lines[1] || '';

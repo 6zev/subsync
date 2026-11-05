@@ -308,8 +308,7 @@ async function runSync({ videoKey, trackId, videoHash, videoSize, filename, conf
   const track = store.getTrack(trackId);
   if (!track) return null;
 
-  const raw = await fetchSubtitleBody({ track, config, log });
-  const doc = parseSubtitles(raw.text, { url: track.url, format: raw.format });
+  const { doc } = await loadSubtitleDoc({ videoKey, trackId, track, config, log });
 
   // References: other subtitles already known for this video. Pick them by rank (best release
   // match first), at most two per language, so a 12-track list does not bury a good reference
@@ -322,7 +321,7 @@ async function runSync({ videoKey, trackId, videoHash, videoSize, filename, conf
   await Promise.all(siblings.map(async (sibling) => {
     try {
       const body = await withTimeout(fetchSubtitleBody({ track: sibling, config, log }), 6000, 'reference download');
-      const refDoc = parseSubtitles(body.text, { url: sibling.url, format: body.format });
+      const refDoc = stripPromoCues(parseSubtitles(body.text, { url: sibling.url, format: body.format }));
       if (refDoc.cues.length >= 8) {
         refDoc.meta = { ...refDoc.meta, sourceLabel: `${sibling.provider}:${sibling.lang}` };
         references.push(refDoc);
@@ -482,7 +481,7 @@ export async function serveSubtitle(req) {
 /** Download, but turn an upstream failure into a clean 502 for the player. */
 async function downloadOrFail(args) {
   try {
-    return await getRawSubtitle(args);
+    return await loadSubtitleDoc(args);
   } catch (err) {
     args.log.warn(`cannot serve ${args.track?.id}: ${err.message}`);
     return {
@@ -491,28 +490,45 @@ async function downloadOrFail(args) {
   }
 }
 
-async function getRawSubtitle({ videoKey, trackId, track, config, log }) {
-  const rawKey = store.cacheKeyOf(['raw', videoKey, trackId]);
+/**
+ * THE single entry point for "give me this track's cues".
+ *
+ * Serving, syncing and the Sync Lab all go through here, because the two rules that must never
+ * be bypassed live here: an upstream that answers 200 with an error page must not become an
+ * empty subtitle, and the promotional cue that free mirrors inject must not reach the viewer.
+ * (Both were real bugs: the sync path used to hand the promo cue straight through.)
+ *
+ * @returns {Promise<{doc:import('../contracts.js').SubtitleDoc, text:string, format:string, fromZip:boolean, cached:boolean}>}
+ */
+export async function loadSubtitleDoc({ videoKey, trackId, track, config, log = pipelineLog }) {
+  const rawKey = store.cacheKeyOf(['raw', videoKey || 'any', trackId || track?.id]);
+
   const cached = store.getCachedSub(rawKey);
   if (cached) {
-    const doc = parseSubtitles(cached.body, { url: track.url, format: cached.format });
-    if (doc.cues.length) return { doc: stripPromoCues(doc), text: cached.body };
+    const doc = parseSubtitles(cached.body, { url: track?.url, format: cached.format });
+    if (doc.cues.length) {
+      return { doc, text: cached.body, format: cached.format || 'srt', fromZip: false, cached: true };
+    }
     store.deleteCachedSub?.(rawKey);
+    log.debug(`dropped an unusable cached subtitle for ${track?.id}`);
   }
+
   const fetched = await fetchSubtitleBody({ track, config, log });
-  const parsed = parseSubtitles(fetched.text, { url: track.url, format: fetched.format });
-  // An upstream that answers 200 with an error page must not reach the player as an empty track.
+  const parsed = parseSubtitles(fetched.text, { url: track?.url, format: fetched.format });
   if (!parsed.cues.length) {
-    throw new Error(`${track.provider} returned no usable subtitle (${fetched.text.length} bytes${fetched.fromZip ? ', from a zip' : ''})`);
+    throw new Error(`${track?.provider || 'upstream'} returned no usable subtitle (${fetched.text.length} bytes${fetched.fromZip ? ', from a zip' : ''})`);
   }
+
   const doc = stripPromoCues(parsed);
+  const format = fetched.format === 'ass' || fetched.format === 'ssa' ? 'srt' : fetched.format;
+  const text = serializeSubtitles(doc, format);
   store.putCachedSub(rawKey, {
-    body: serializeSubtitles(doc, fetched.format === 'ass' || fetched.format === 'ssa' ? 'srt' : fetched.format),
-    format: fetched.format === 'ass' || fetched.format === 'ssa' ? 'srt' : fetched.format,
+    body: text,
+    format,
     contentType: 'text/plain; charset=utf-8',
-    ttlMs: config.CACHE_TTL_MS,
+    ttlMs: config?.CACHE_TTL_MS,
   });
-  return { doc, text: fetched.text };
+  return { doc, text, format, fromZip: fetched.fromZip, cached: false };
 }
 
 function serve(body, format, track, log, sync, degraded = false) {

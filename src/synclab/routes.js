@@ -13,7 +13,7 @@ import { attachMedia, resolveMedia } from '../media/index.js';
 import {
   parseSubtitles, serializeSubtitles, applySyncResult, normalizeOffset, offsetFromCapture, shiftDoc,
 } from '../sync/index.js';
-import { fetchSubtitleBody } from '../addon/pipeline.js';
+import { loadSubtitleDoc } from '../addon/pipeline.js';
 import { NUVIO, LANG_NAMES, toLang2 } from '../contracts.js';
 import { createLogger } from '../util/log.js';
 
@@ -100,7 +100,7 @@ export async function getCues({ token, trackId, fromMs, toMs, limit = 60, baseCo
 
   let doc;
   try {
-    doc = await rawDocFor(track, resolved.config);
+    doc = await rawDocFor(track, resolved.config, resolved.videoKey);
   } catch (err) {
     return fail(502, `cannot read the subtitle: ${err.message}`);
   }
@@ -228,7 +228,7 @@ export async function getPreview({ token, trackId, baseConfig = getConfig() }) {
   if (!track) return fail(404, 'unknown track');
   let doc;
   try {
-    doc = await rawDocFor(track, resolved.config);
+    doc = await rawDocFor(track, resolved.config, resolved.videoKey);
   } catch (err) {
     return fail(502, `cannot read the subtitle: ${err.message}`);
   }
@@ -271,12 +271,12 @@ export async function getTracks({ token, baseConfig = getConfig() }) {
 
 const docCache = new Map();
 
-async function rawDocFor(track, config) {
+async function rawDocFor(track, config, videoKey) {
   const key = `${track.id}:${track.createdAt || 0}`;
   const hit = docCache.get(key);
   if (hit) return hit;
-  const fetched = await fetchSubtitleBody({ track, config, log: labLog });
-  const doc = parseSubtitles(fetched.text, { url: track.url, format: fetched.format });
+  // Same loader as the serving path, so the Sync Lab never shows an injected promo cue either.
+  const { doc } = await loadSubtitleDoc({ videoKey, trackId: track.id, track, config, log: labLog });
   if (docCache.size > 200) docCache.clear();
   docCache.set(key, doc);
   return doc;
