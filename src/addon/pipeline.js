@@ -507,7 +507,16 @@ export async function loadSubtitleDoc({ videoKey, trackId, track, config, log = 
   if (cached) {
     const doc = parseSubtitles(cached.body, { url: track?.url, format: cached.format });
     if (doc.cues.length) {
-      return { doc, text: cached.body, format: cached.format || 'srt', fromZip: false, cached: true };
+      // Strip here too: entries cached by an older build still carry the promo cue, and a
+      // persisted /data volume means they survive a redeploy.
+      const cleaned = stripPromoCues(doc);
+      return {
+        doc: cleaned,
+        text: cleaned === doc ? cached.body : serializeSubtitles(cleaned, cached.format || 'srt'),
+        format: cached.format || 'srt',
+        fromZip: false,
+        cached: true,
+      };
     }
     store.deleteCachedSub?.(rawKey);
     log.debug(`dropped an unusable cached subtitle for ${track?.id}`);

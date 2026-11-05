@@ -254,6 +254,24 @@ test('promotional cues injected by free mirrors never reach the player', async (
   assert.equal(stripPromoCues({ format: 'srt', cues: [], meta: {} }).cues.length, 0);
 });
 
+test('a promo cue is stripped even when it comes out of a stale cache entry', async () => {
+  const { loadSubtitleDoc } = await import('../../src/addon/pipeline.js');
+  const store = await import('../../src/store/index.js');
+  const videoKey = store.videoKeyOf({ type: 'movie', id: 'ttSTALECACHE' });
+  const track = { id: 'stale:1', provider: 'local', lang: 'en', url: 'file:/nonexistent.srt', format: 'srt' };
+  // Simulate what an older build cached: the advert is still in the body.
+  store.putCachedSub(store.cacheKeyOf(['raw', videoKey, track.id]), {
+    body: '1\n00:00:00,000 --> 00:00:06,000\nAdvertise your product or brand here\n\n'
+      + '2\n00:00:20,000 --> 00:00:22,000\nReal dialogue.\n',
+    format: 'srt',
+    ttlMs: 60_000,
+  });
+  const { doc, text, cached } = await loadSubtitleDoc({ videoKey, trackId: track.id, track, config: {} });
+  assert.equal(cached, true);
+  assert.equal(doc.cues.length, 1);
+  assert.ok(!/Advertise your product/i.test(text), text);
+});
+
 test('a promo cue never survives the SYNC path either', async () => {
   const { signToken } = await import('../../src/addon/tokens.js');
   const store = await import('../../src/store/index.js');
