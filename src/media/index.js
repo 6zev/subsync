@@ -72,12 +72,13 @@ export async function resolveMedia(req) {
     return { kind: 'url', path: explicitUrl.url, reason: 'attached direct URL', title: explicitUrl.filename };
   }
 
-  // 2. local media roots
+  // 2. a local file we can identify beyond doubt — by content hash or exact size. This is the
+  //    strongest evidence there is, and it needs no name at all.
   const roots = config.LOCAL_MEDIA_ROOTS || [];
   if (roots.length) {
     const entries = await getMediaIndex(roots);
-    const match = await matchLocalMedia(entries, { videoHash, videoSize, filename });
-    if (match) return { kind: 'local', path: match.path, reason: match.reason, title: match.name };
+    const exact = await matchLocalMedia(entries, { videoHash, videoSize, filename }, 'exact');
+    if (exact) return { kind: 'local', path: exact.path, reason: exact.reason, title: exact.name };
   }
 
   // 3. ask the user's own stream addon — it already resolved the link for the player, and when
@@ -93,8 +94,20 @@ export async function resolveMedia(req) {
         log: mediaLog,
       }).catch(() => null);
       if (borrowed?.kind === 'url' && borrowed.url) {
+        // Refuse a clearly different release: playing a local file while the torrent addon answers
+        // with another cut would align against the wrong audio.
+        if (filename && borrowed.matchScore !== null && borrowed.matchScore < 0.35) {
+          mediaLog.debug(`stream addon ${borrowed.addon} matched a different release (score ${borrowed.matchScore}) — ignoring it`);
+          continue;
+        }
         kvSet(KV_URL(videoKey), { url: borrowed.url, expiresAt: Date.now() + 6 * 3600 * 1000, filename: borrowed.title });
-        return { kind: 'url', path: borrowed.url, reason: borrowed.reason, title: borrowed.title };
+        return {
+          kind: 'url',
+          path: borrowed.url,
+          reason: borrowed.reason,
+          title: borrowed.title,
+          release: borrowed.release,
+        };
       }
       if (borrowed?.kind === 'infohash' && config.DEBRID_PROVIDER && config.DEBRID_API_KEY) {
         kvSet(KV_MAGNET(videoKey), { infoHash: borrowed.infoHash, fileIdx: borrowed.fileIdx });
@@ -102,7 +115,15 @@ export async function resolveMedia(req) {
     }
   }
 
-  // 4. debrid (opt-in, slow — only when the caller explicitly allows it)
+  // 4. a local file matched by name only — weaker than the stream addon, which knows exactly
+  //    which release is playing.
+  if (roots.length) {
+    const entries = await getMediaIndex(roots);
+    const byName = await matchLocalMedia(entries, { videoHash, videoSize, filename }, 'name');
+    if (byName) return { kind: 'local', path: byName.path, reason: byName.reason, title: byName.name };
+  }
+
+  // 5. debrid (opt-in, slow — only when the caller explicitly allows it)
   if (req.allowDebrid !== false) {
     const ref = kvGet(KV_MAGNET(videoKey));
     if (ref && config.DEBRID_PROVIDER && config.DEBRID_API_KEY) {
@@ -128,9 +149,17 @@ export async function resolveMedia(req) {
  * Find the local file matching the playing video.
  * Exact-hash first (only for candidates whose size matches, capped), then size+name, then name.
  */
-async function matchLocalMedia(entries, { videoHash, videoSize, filename }) {
+async function matchLocalMedia(entries, { videoHash, videoSize, filename }, phase = 'exact') {
   if (!entries?.length) return null;
   const wantSize = Number(videoSize) || 0;
+
+  if (phase === 'name') {
+    if (!filename) return null;
+    const byName = bestByName(entries, filename);
+    return byName && byName.score >= 0.5
+      ? { path: byName.entry.path, name: byName.entry.name, reason: `filename match (${byName.score.toFixed(2)})` }
+      : null;
+  }
 
   if (videoHash && /^[0-9a-f]{16}$/i.test(videoHash)) {
     const candidates = entries
@@ -160,10 +189,6 @@ async function matchLocalMedia(entries, { videoHash, videoSize, filename }) {
     }
   }
 
-  if (filename) {
-    const best = bestByName(entries, filename);
-    if (best && best.score >= 0.5) return { path: best.entry.path, name: best.entry.name, reason: `filename match (${best.score.toFixed(2)})` };
-  }
   return null;
 }
 

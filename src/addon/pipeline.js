@@ -328,12 +328,42 @@ async function runSync({ videoKey, trackId, videoHash, videoSize, filename, conf
 
   const { doc } = await loadSubtitleDoc({ videoKey, trackId, track, config, log });
 
+  // Resolve the media FIRST: the stream addon answers with the release name it is actually
+  // playing, and that name is a better anchor for reference ranking than Stremio's extra (a
+  // torrent filename is often just the pack name).
+  let mediaPath = null;
+  let mediaHeaders = null;
+  let mediaRelease = null;
+  let referencePath = null;
+  if (allowAudio && config.AUDIO_SYNC_ENABLED) {
+    const videoInfo = store.kvGet(`video:${videoKey}`) || {};
+    const media = await resolveMedia({
+      videoKey,
+      videoHash,
+      videoSize,
+      filename,
+      type: videoInfo.type,
+      id: videoInfo.id,
+    }).catch(() => ({ kind: 'none' }));
+    if (media.kind !== 'none') {
+      mediaPath = media.path;
+      mediaHeaders = media.headers;
+      mediaRelease = media.release || null;
+      log('info', `audio source: ${media.reason} (${media.kind})`);
+    } else {
+      log('debug', `no audio source: ${media.reason}`);
+    }
+  }
+
+  const effectiveFilename = filename || mediaRelease || null;
+  if (!filename && mediaRelease) log('debug', `using the stream addon's release name for matching: ${mediaRelease}`);
+
   // References: other subtitles already known for this video. Pick them by rank (best release
   // match first), at most two per language, so a 12-track list does not bury a good reference
   // under four near-duplicates.
   const siblings = selectReferences(
     store.listTracks(videoKey, { kind: 'primary', limit: 30 }),
-    { excludeId: trackId, targetLang: track.lang, filename, videoHash, langs: config.PREFERRED_LANGS },
+    { excludeId: trackId, targetLang: track.lang, filename: effectiveFilename, videoHash, langs: config.PREFERRED_LANGS },
   );
   const references = [];
   await Promise.all(siblings.map(async (sibling) => {
@@ -349,35 +379,13 @@ async function runSync({ videoKey, trackId, videoHash, videoSize, filename, conf
     }
   }));
 
-  let mediaPath = null;
-  let mediaHeaders = null;
-  let referencePath = null;
-  if (allowAudio && config.AUDIO_SYNC_ENABLED) {
-    const videoInfo = store.kvGet(`video:${videoKey}`) || {};
-    const media = await resolveMedia({
-      videoKey,
-      videoHash,
-      videoSize,
-      filename,
-      type: videoInfo.type,
-      id: videoInfo.id,
-    }).catch(() => ({ kind: 'none' }));
-    if (media.kind !== 'none') {
-      mediaPath = media.path;
-      mediaHeaders = media.headers;
-      log('info', `audio source: ${media.reason} (${media.kind})`);
-    } else {
-      log('debug', `no audio source: ${media.reason}`);
-    }
-  }
-
   const llm = config.LLM_PROVIDER && config.LLM_API_KEY
     ? { provider: config.LLM_PROVIDER, apiKey: config.LLM_API_KEY, model: config.LLM_MODEL || undefined, attempts: config.LLM_ATTEMPTS }
     : null;
 
   const result = await syncSubtitle({
     doc,
-    target: { filename, videoHash, videoSize, lang: track.lang },
+    target: { filename: effectiveFilename, videoHash, videoSize, lang: track.lang },
     references,
     llm,
     audio: {

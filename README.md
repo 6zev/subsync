@@ -302,7 +302,7 @@ biết nó đã bị dịch bao nhiêu và bằng cách nào.
 ## 6. Kiểm thử
 
 ```bash
-npm test          # 129 test (node:test, không cần dependency)
+npm test          # 132 test (node:test, không cần dependency)
 npm run test:e2e  # bật HTTP server thật rồi gọi như Stremio + 1 video ffmpeg thật
 ```
 
@@ -344,7 +344,7 @@ docs/                 nuvio-parity · architecture · api
 Dockerfile            node:24-slim + ffmpeg (+ alass trên amd64)
 docker-compose.yml    1 service, volume /data cho offset & cache
 .github/workflows/    test -> buildx -> ghcr.io (amd64 + arm64)
-test/                 129 test
+test/                 132 test
 ```
 
 ---
@@ -358,13 +358,17 @@ test/                 129 test
 - Căn theo âm thanh cần addon **tự tìm được file phim**, và Stremio **không** gửi link stream
   cho addon phụ đề. Ba cách, theo thứ tự addon thử:
 
-  1. **`MEDIA_SOURCE_ADDON`** — dán manifest URL của addon stream bạn đang dùng (Torrentio,
-     v.v.). Nếu addon đó đã gắn debrid thì câu trả lời `/stream/` của nó có link phát trực tiếp
-     → **không cần khai báo debrid lần thứ hai ở đây**. Nếu nó chỉ trả `infoHash`, addon sẽ
-     dùng hash đó với key debrid *nếu* bạn có khai báo;
-  2. **`LOCAL_MEDIA_ROOTS`** — khi addon chạy cạnh thư viện phim: khớp theo hash
-     OpenSubtitles của file → đúng dung lượng → dung lượng + tên → tên gần giống. Ô này cũng
-     quét luôn `.srt/.ass` nằm cạnh phim để làm nguồn phụ đề;
+  1. **`MEDIA_SOURCE_ADDON`** (khuyến nghị, chính xác nhất) — dán manifest URL của addon stream
+     bạn đang dùng, mỗi dòng một URL. Addon hỏi lại chính nó đúng câu Stremio đã hỏi, nên biết
+     **đúng file/release nào đang phát**; nếu addon đó đã gắn debrid thì câu trả lời đã có link
+     phát trực tiếp → **không cần khai báo debrid lần thứ hai ở đây**. Tên release lấy được còn
+     được dùng để xếp hạng phụ đề tham chiếu tốt hơn. Nếu addon chỉ trả `infoHash` thì hash đó
+     được dùng với key debrid *nếu* bạn có khai báo;
+     Addon tự bỏ qua nếu nó trả về một release **khác hẳn** file đang phát (ví dụ bạn đang xem
+     file trong máy mà addon torrent trả về bản khác) — tránh căn nhầm vào audio sai;
+  2. **`LOCAL_MEDIA_ROOTS`** — mỗi dòng một thư mục, khi addon chạy cạnh thư viện phim. Khớp
+     **theo hash OpenSubtitles / đúng dung lượng trước** (không cần tên, độ tin cậy cao), rồi
+     mới tới tên gần giống. Ô này cũng quét luôn `.srt/.ass` nằm cạnh phim để làm nguồn phụ đề;
   3. Ô "Gắn nguồn phim" trong Sync Lab — dán đường dẫn / URL / magnet cho đúng video đó.
 
   Cả ba đều **không bắt buộc**: không có gì thì tầng `audio` tự bỏ qua và addon vẫn chạy bằng

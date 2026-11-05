@@ -121,3 +121,48 @@ test('with nothing configured, resolveMedia says so plainly', async () => {
   assert.equal(media.kind, 'none');
   assert.match(media.reason, /no local file, URL or debrid magnet/);
 });
+
+/* ── picking the right file out of a real addon's decorated titles ── */
+
+test('candidateLabels pulls the file name out of Debrid Media Manager style titles', async () => {
+  const { candidateLabels, cleanLabel } = (await import('../../src/media/stream-addon.js')).__internal;
+  const dmm = candidateLabels({
+    title: 'Joker.Folie.a.Deux.2024.2160p.U-HDRemux.HDR.DV-TheEqualizer.mkv\nDD 5.1 • 🇷🇺 🇬🇧\n🎬 DMM Cast TB',
+    name: '4K • HEVC • 64.08 GB',
+    behaviorHints: { filename: 'Joker.Folie.a.Deux.2024.2160p.U-HDRemux.HDR.DV-TheEqualizer.mkv' },
+  });
+  assert.equal(dmm[0], 'Joker.Folie.a.Deux.2024.2160p.U-HDRemux.HDR.DV-TheEqualizer.mkv');
+  assert.ok(!dmm.some((l) => /[🇷🇺🎬•]/.test(l)), `decoration leaked: ${JSON.stringify(dmm)}`);
+
+  const multiLine = candidateLabels({ title: 'Joker Folie à Deux 2024 BluRay 2160p UHD MULTi -\nREMUX HEVC (10bit) DV Atmos-Aisha\nTrueHD 7.1 • more' });
+  assert.equal(multiLine[0], 'Joker Folie à Deux 2024 BluRay 2160p UHD MULTi');
+
+  assert.equal(cleanLabel(''), '');
+  assert.equal(cleanLabel(null), '');
+  assert.equal(cleanLabel('🎬   '), '');
+});
+
+test('the matching stream wins even when it is not first in the list', async () => {
+  const { __internal } = await import('../../src/media/stream-addon.js');
+  const filename = 'Joker.Folie.a.Deux.2024.2160p.UHD.BluRay.REMUX.HDR.MULTi.mkv';
+  const picked = __internal.pickBest([
+    { title: 'Joker.Folie.a.Deux.2024.1080p.WEB-DL.x264-OTHER\nAAC 2.0', url: 'https://x/a' },
+    { title: 'cast a file inside a torrent', url: 'https://x/b' },
+    { title: `${filename}\nDD 5.1 • more`, url: 'https://x/c' },
+  ], filename);
+  assert.equal(picked.url, 'https://x/c');
+});
+
+test('a stream addon answering with a different release is refused while a local file is playing', async () => {
+  const { resolveMedia } = await import('../../src/media/index.js');
+  const videoKey = 'h:1122334455667788:99';
+  const { saveConfig, reloadConfig } = await import('../../src/env.js');
+  reloadConfig();
+  saveConfig({ MEDIA_SOURCE_ADDON: [`${base}/manifest.json`], LOCAL_MEDIA_ROOTS: [], DEBRID_PROVIDER: '', DEBRID_API_KEY: '' });
+  // tt137 answers with an Inception release; ask for a completely unrelated file.
+  const media = await resolveMedia({
+    videoKey, type: 'movie', id: 'tt137', filename: 'Some.Totally.Different.Movie.1999.720p.mkv',
+  });
+  assert.equal(media.kind, 'none', 'must not align against an unrelated release');
+  assert.match(media.reason, /no local file/);
+});

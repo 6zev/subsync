@@ -133,15 +133,29 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
 
 <form id="cfgForm" method="post" action="api/config">
   <div class="card">
+    <h3>Nguồn phim — cho tầng căn theo âm thanh</h3>
+    <p class="note">
+      Stremio <strong>không</strong> gửi link stream cho addon phụ đề, nên addon phải tự hỏi addon
+      stream của bạn để biết <strong>đúng file nào đang phát</strong>. Đây là nguồn chính xác nhất
+      (nó nói cả tên release), và nếu addon đó <strong>đã gắn debrid sẵn</strong> thì câu trả lời
+      của nó đã có link phát trực tiếp — <em>bạn không cần khai báo debrid lần thứ hai</em>.
+      Bỏ trống cũng không sao: tầng âm thanh tự tắt, addon vẫn chạy bằng hai tầng trên.
+    </p>
+    <label>Addon stream đang dùng — mỗi dòng một URL manifest.json</label>
+    <textarea name="MEDIA_SOURCE_ADDON" rows="3"
+      placeholder="https://debridmediamanager.com/api/stremio-tb/&lt;token&gt;/manifest.json">${escapeHtml((config.MEDIA_SOURCE_ADDON || []).join('\n'))}</textarea>
+  </div>
+
+  <div class="card">
     <h3>Nguồn phụ đề</h3>
     ${providerRows || '<p class="note">Không có provider nào.</p>'}
     <label>OpenSubtitles API key</label>
     <input name="OPENSUBTITLES_API_KEY" placeholder="${escapeHtml(config.OPENSUBTITLES_API_KEY_MASK || 'chưa đặt')}">
     <label>SubDL API key</label>
     <input name="SUBDL_API_KEY" placeholder="${escapeHtml(config.SUBDL_API_KEY_MASK || 'chưa đặt')}">
-    <label>Addon phụ đề Stremio khác (URL manifest.json, cách nhau bằng dấu phẩy)</label>
-    <input name="STREMIO_SUBTITLE_ADDONS" value="${escapeHtml((config.STREMIO_SUBTITLE_ADDONS || []).join(','))}"
-           placeholder="https://opensubtitles-v3.strem.io/manifest.json">
+    <label>Addon phụ đề Stremio khác — mỗi dòng một URL manifest.json</label>
+    <textarea name="STREMIO_SUBTITLE_ADDONS" rows="3"
+      placeholder="https://opensubtitles-v3.strem.io/manifest.json">${escapeHtml((config.STREMIO_SUBTITLE_ADDONS || []).join('\n'))}</textarea>
   </div>
 
   <div class="card">
@@ -177,21 +191,13 @@ export function renderConfigPage({ manifestUrl, shareUrl, config, providers = []
   </div>
 
   <details class="card adv">
-    <summary>Nâng cao — chỉ cần khi bật "căn chỉnh theo âm thanh"</summary>
-    <p class="note" style="margin-top:12px">
-      Tầng căn theo âm thanh cần chạm tới <strong>file phim thật</strong>. Stremio không gửi link
-      stream cho addon phụ đề, nên addon phải tự tìm lấy. <strong>Nếu bạn đã dùng một addon
-      stream có gắn debrid sẵn</strong> (Torrentio + Real-Debrid, v.v.) thì chỉ cần dán manifest
-      URL của nó vào ô đầu tiên — <em>không cần khai báo debrid lần thứ hai</em>.
-    </p>
-    <label>Addon stream đang dùng (manifest.json, cách nhau bằng dấu phẩy)</label>
-    <input name="MEDIA_SOURCE_ADDON" value="${escapeHtml((config.MEDIA_SOURCE_ADDON || []).join(','))}"
-           placeholder="https://torrentio.strem.fun/manifest.json">
-    <label>Thư mục phim trên máy chạy addon (dùng khi addon nằm cạnh thư viện phim)</label>
-    <input name="LOCAL_MEDIA_ROOTS" value="${escapeHtml((config.LOCAL_MEDIA_ROOTS || []).join(':'))}" placeholder="/mnt/phim:/data/media">
+    <summary>Nâng cao — chỉ cần khi addon chạy cạnh thư viện phim, hoặc khi addon stream không trả link trực tiếp</summary>
+    <label>Thư mục phim trên máy chạy addon — mỗi dòng một thư mục</label>
+    <textarea name="LOCAL_MEDIA_ROOTS" rows="2" placeholder="/mnt/phim&#10;/data/media">${escapeHtml((config.LOCAL_MEDIA_ROOTS || []).join('\n'))}</textarea>
+    <p class="note" style="margin-top:6px">Khớp theo hash OpenSubtitles của file → đúng dung lượng → dung lượng + tên → tên gần giống. Thư mục này cũng được quét để tìm <code>.srt/.ass</code> nằm cạnh phim.</p>
     <div class="grid2">
       <div>
-        <label>Debrid (chỉ khi addon stream không trả link trực tiếp)</label>
+        <label>Debrid (chỉ khi addon stream trả về infoHash thay vì link)</label>
         <select name="DEBRID_PROVIDER">
           ${['', 'realdebrid', 'torbox', 'alldebrid'].map((p) => `<option value="${p}" ${config.DEBRID_PROVIDER === p ? 'selected' : ''}>${p || 'không dùng'}</option>`).join('')}
         </select>

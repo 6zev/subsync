@@ -124,7 +124,10 @@ function coerce(key, value) {
   if (value === undefined || value === null) return undefined;
   if (Array.isArray(def)) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
-    return String(value).split(/[,:]/).map((s) => s.trim()).filter(Boolean);
+    const text = String(value);
+    // The forms ask for one entry per line, which also keeps Windows paths ("C:\media") intact.
+    const separator = text.includes('\n') ? /\r?\n+/ : /[,:]/;
+    return text.split(separator).map((s) => s.trim()).filter(Boolean);
   }
   if (typeof def === 'boolean') {
     if (typeof value === 'boolean') return value;

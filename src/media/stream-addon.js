@@ -55,11 +55,16 @@ export async function resolveFromStreamAddon({
   const playable = streams.filter((stream) => typeof stream?.url === 'string' && /^https?:/i.test(stream.url));
   if (playable.length) {
     const best = pickBest(playable, filename);
-    log('info', `media source from stream addon ${addon}: ${safeHost(best.url)} (${best.title || 'untitled'})`);
+    // The release name the addon reports is the ground truth for "what is actually playing",
+    // which is worth more than what Stremio hands us.
+    const release = candidateLabels(best)[0] || null;
+    log('info', `media source from stream addon ${addon}: ${safeHost(best.url)} (${release || 'unnamed'})`);
     return {
       kind: 'url',
       url: best.url,
-      title: best.title,
+      title: release,
+      release,
+      matchScore: Number.isFinite(best.__matchScore) ? Number(best.__matchScore.toFixed(3)) : null,
       reason: `resolved by stream addon ${addon}`,
       addon,
     };
@@ -84,14 +89,54 @@ export async function resolveFromStreamAddon({
   return { kind: 'none', reason: 'the stream addon exposed no playable link or hash', addon };
 }
 
+/**
+ * Pull usable release/file names out of a stream entry.
+ *
+ * Addons decorate `title` heavily. Debrid Media Manager, for example, returns multi-line titles
+ * like:
+ *   "Joker.Folie.a.Deux.2024.2160p.U-HDRemux.HDR.DV-TheEqualizer.mkv\nDD 5.1 • \ud83c\uddf7\ud83c\uddfa\ud83c\uddec\ud83c\udde7\n\ud83c\udfac DMM Cast TB"
+ * The first line is the real file name; the rest is decoration. Returning every plausible line as
+ * a candidate and scoring the best of them is what makes the right file win.
+ *
+ * @param {any} stream
+ * @returns {string[]}
+ */
+export function candidateLabels(stream) {
+  const out = [];
+  const push = (value) => {
+    const text = cleanLabel(value);
+    if (text && text.length >= 3 && !out.includes(text)) out.push(text);
+  };
+  const title = String(stream?.title || '');
+  // Line by line: the first line usually carries the file name, later ones the specs.
+  for (const line of title.split(/\r?\n/)) push(line);
+  push(stream?.behaviorHints?.filename);
+  push(stream?.name);
+  return out;
+}
+
+/** Strip emoji, flags, bullet separators and stray markup from a stream label. */
+export function cleanLabel(value) {
+  return String(value ?? '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]/gu, ' ')
+    .split(/\s[•·|]\s/)[0]
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[\s.\-_]+$/, '')
+    .trim();
+}
+
 /** Best release match by name; a lone candidate wins by default. */
 function pickBest(streams, filename) {
   if (streams.length === 1 || !filename) return streams[0];
   let best = streams[0];
   let bestScore = -1;
   for (const stream of streams) {
-    const label = String(stream.title || stream.behaviorHints?.filename || stream.name || '');
-    const score = releaseSimilarity(filename, label);
+    const labels = candidateLabels(stream);
+    const score = labels.length
+      ? Math.max(...labels.map((label) => releaseSimilarity(filename, label)))
+      : 0;
+    stream.__matchScore = score;
     if (score > bestScore) {
       best = stream;
       bestScore = score;
@@ -100,4 +145,4 @@ function pickBest(streams, filename) {
   return best;
 }
 
-export const __internal = { pickBest };
+export const __internal = { pickBest, candidateLabels, cleanLabel };
