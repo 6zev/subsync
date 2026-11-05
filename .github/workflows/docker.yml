@@ -60,6 +60,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Stamp the build time
+        id: stamp
+        run: echo "time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Derive tags and labels
         id: meta
         uses: docker/metadata-action@v5
@@ -85,7 +89,7 @@ jobs:
           build-args: |
             INSTALL_FFMPEG=1
             GIT_SHA=${{ github.sha }}
-            BUILD_TIME=${{ github.event.repository.pushed_at || github.run_started_at }}
+            BUILD_TIME=${{ steps.stamp.outputs.time }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
